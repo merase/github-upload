@@ -1,0 +1,2154 @@
+1. Create the directory where the baseline and backup files will be stored:
+# mkdir -p /backup/tpbackup_`hostname`/
+2. Change the directory permissions:
+# chmod 777 /backup/tpbackup_`hostname`/
+
+***Verify Current Installation***
+This information is important if a rollback is required
+
+To obtain a list of all current installed packages on the server, execute
+# rpm -qa > /backup/tpbackup_`hostname`/`hostname`_<base_release>_packages_installed.txt
+
+[root@lithoam sbin]# rpm -qa > /backup/tpbackup_`hostname`/`hostname`_14.8_packages_installed.txt
+[root@lithoam sbin]#
+
+------
+Verify MySQL version.
+# mysqladmin --version >  /backup/tpbackup_`hostname`/`hostname`_14.8_mysql_version.txt
+
+[root@lithoam sbin]# mysqladmin --version >  /backup/tpbackup_`hostname`/`hostname`_14.8_mysql_version.txt
+[root@lithoam sbin]#
+
+-------
+Create a rollback directory /backup/tmp/rollback and copy the all source packages
+For 11.0/15.7/15.8:
+# mkdir -p /backup/tmp/rollback/
+# cp -r /usr/tmp/textpass /backup/tmp/rollback
+# cp -r /usr/tmp/opensource /backup/tmp/rollback
+
+[root@lithoam sbin]# mkdir -p /backup/tmp/rollback
+[root@lithoam sbin]#
+[root@lithoam sbin]# cp -r /usr/tmp/textpass /backup/tmp/rollback
+[root@lithoam sbin]#
+[root@lithoam sbin]# cp -r /usr/tmp/opensource /backup/tmp/rollback
+
+---------
+Establish a Baseline, login as textpass, check status of all tp processes in operating state and store tp_walkall output.
+# su - textpass
+$ tp_status > /backup/tpbackup_`hostname`/`hostname`_<base_release>_tp_status.txt
+$ tp_walkall > /backup/tpbackup_`hostname`/`hostname`_<base_release>_baseline.txt
+
+[root@lithoam sbin]# su - textpass
+[textpass@lithoam ~]$ tp_status > /backup/tpbackup_`hostname`/`hostname`_14.8_tp_status.txt
+[textpass@lithoam ~]$
+[textpass@lithoam ~]$ tp_walkall > /backup/tpbackup_`hostname`/`hostname`_14.8_baseline.txt
+[textpass@lithoam ~]$
+
+---------
+It is advisable to make a printout of the contents of /etc/fstab and /etc/mtab files using below commands.
+After reinstalling a new operating system (OS), the system does not recognize partitions which were
+installed on a different disk set other than the OS.
+# cat /etc/fstab
+# cat /etc/mtab
+
+
+[root@lithoam ~]# cat /etc/fstab
+
+#
+# /etc/fstab
+# Created by anaconda on Fri Oct 11 03:14:38 2019
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk'
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+#
+/dev/mapper/vgroot-plat_root /                       ext3    defaults        1 1
+UUID=b7de94d1-c1e9-4af5-bec6-36b6e879b9f1 /boot                   ext3    defaults        1 2
+tmpfs                   /dev/shm                tmpfs   defaults        0 0
+devpts                  /dev/pts                devpts  gid=5,mode=620  0 0
+sysfs                   /sys                    sysfs   defaults        0 0
+proc                    /proc                   proc    defaults        0 0
+nlna01:/home /home nfs defaults 0 0
+nlna01:/development /home/development nfs defaults 0 0
+nlna01:/support /home/support nfs defaults 0 0
+nlna01:/open_source /opt/open_source nfs defaults 0 0
+nlna01:/installimages /opt/installimages nfs defaults 0 0
+/dev/sdb1       /backup ext4    defaults        1 2
+[root@lithoam sbin]#
+
+[root@lithoam ~]# cat /etc/mtab
+/dev/mapper/vgroot-plat_root / ext3 rw 0 0
+proc /proc proc rw 0 0
+sysfs /sys sysfs rw 0 0
+devpts /dev/pts devpts rw,gid=5,mode=620 0 0
+tmpfs /dev/shm tmpfs rw 0 0
+/dev/sda1 /boot ext3 rw 0 0
+/dev/sdb1 /backup ext4 rw 0 0
+none /proc/sys/fs/binfmt_misc binfmt_misc rw 0 0
+[root@lithoam ~]#
+
+
+----------
+Follow below steps to backup the minimal required OS configuration files to facilitate a fast reconfiguration of the server after upgrade:
+1. Login as root. Create a directory for the essential operating system configuration files:
+# mkdir -p /backup/tpbackup_`hostname`/OSfiles
+# chmod 777 /backup/tpbackup_`hostname`/OSfiles/
+
+[root@lithoam sbin]#
+[root@lithoam sbin]# mkdir -p /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]#
+[root@lithoam sbin]# chmod 777 /backup/tpbackup_`hostname`/OSfiles/
+[root@lithoam sbin]#
+
+----------
+Backup the network configuration file.
+# cp /etc/sysconfig/network /backup/tpbackup_`hostname`/OSfiles/etc_sysconfig_network
+
+[root@lithoam sbin]# cp /etc/sysconfig/network /backup/tpbackup_`hostname`/OSfiles/etc_sysconfig_network
+[root@lithoam sbin]#
+[root@lithoam sbin]#
+
+----------
+Backup the network interface configuration and routes files:
+# mkdir -p /backup/tpbackup_`hostname`/OSfiles/network_scripts
+# cp /etc/sysconfig/network-scripts/ifcfg-*  /backup/tpbackup_`hostname`/OSfiles/network_scripts
+# cp /etc/sysconfig/network-scripts/route-*  /backup/tpbackup_`hostname`/OSfiles/network_scripts
+
+[root@lithoam sbin]# mkdir -p /backup/tpbackup_`hostname`/OSfiles/network_scripts
+[root@lithoam sbin]#
+[root@lithoam sbin]# cp /etc/sysconfig/network-scripts/ifcfg-*  /backup/tpbackup_`hostname`/OSfiles/network_scripts
+[root@lithoam sbin]#
+[root@lithoam sbin]# cp /etc/sysconfig/network-scripts/route-*  /backup/tpbackup_`hostname`/OSfiles/network_scripts
+
+-----------
+Backup the hostid, hosts, hosts.allow, hosts.deny, and host.conf files:
+# mkdir -p /backup/tpbackup_`hostname`/OSfiles/host_bkp
+# cp /etc/host* /backup/tpbackup_`hostname`/OSfiles/host_bkp
+
+[root@lithoam sbin]# mkdir -p /backup/tpbackup_`hostname`/OSfiles/host_bkp
+[root@lithoam sbin]#
+[root@lithoam sbin]# cp /etc/host* /backup/tpbackup_`hostname`/OSfiles/host_bkp
+[root@lithoam sbin]#
+
+-----------
+Backup log rotation information
+# mkdir -p /backup/tpbackup_`hostname`/OSfiles/etc_logrotate
+# cp /etc/logrotate.conf /backup/tpbackup_`hostname`/OSfiles/etc_logrotate/
+# cp /etc/logrotate.d/* /backup/tpbackup_`hostname`/OSfiles/etc_logrotate/
+
+[root@lithoam sbin]# mkdir -p /backup/tpbackup_`hostname`/OSfiles/etc_logrotate
+[root@lithoam sbin]#
+[root@lithoam sbin]# cp /etc/logrotate.conf /backup/tpbackup_`hostname`/OSfiles/etc_logrotate/
+[root@lithoam sbin]#
+[root@lithoam sbin]# cp /etc/logrotate.d/* /backup/tpbackup_`hostname`/OSfiles/etc_logrotate/
+[root@lithoam sbin]#
+
+------------
+Backup the DNS configuration file:
+# cp /etc/resolv.conf /backup/tpbackup_`hostname`/OSfiles/etc_resolv.conf
+
+[root@lithoam sbin]# cp /etc/resolv.conf /backup/tpbackup_`hostname`/OSfiles/etc_resolv.conf
+[root@lithoam sbin]#
+
+------------
+Backup the NTP configuration file:
+# cp /etc/ntp.conf /backup/tpbackup_`hostname`/OSfiles
+
+[root@lithoam sbin]# cp /etc/ntp.conf /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]#
+
+------------
+Backup the GRUB configuration file:
+For Upgrade from 11.0/15.7/15.8 to 17.9:
+# cp /etc/grub.conf /backup/tpbackup_`hostname`/OSfiles
+
+[root@lithoam sbin]# cp /etc/grub.conf /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]#
+
+-----------
+Backup the sysctl.conf configuration file.
+For Upgrade from 11.0/15.7/15.8 to 17.9:
+# cp /etc/sysctl.conf /backup/tpbackup_`hostname`/OSfiles
+
+[root@lithoam sbin]# cp /etc/sysctl.conf /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]#
+
+----------
+Backup the rsyslog.conf configuration file.
+# cp /etc/rsyslog.conf /backup/tpbackup_`hostname`/OSfiles
+
+[root@lithoam sbin]# cp /etc/rsyslog.conf /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]#
+
+--------
+Backup the TimeZone configuration files:
+# cp /etc/profile.d/tz.sh /backup/tpbackup_`hostname`/OSfiles
+
+[root@lithoam sbin]# cp /etc/profile.d/tz.sh /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]#
+
+---------
+Backup the modprobe configuration file:
+# mkdir /backup/tpbackup_`hostname`/OSfiles/modprobe.d
+# cp -r /etc/modprobe.d/* /backup/tpbackup_`hostname`/OSfiles/modprobe.d
+
+[root@lithoam sbin]# mkdir /backup/tpbackup_`hostname`/OSfiles/modprobe.d
+[root@lithoam sbin]#
+[root@lithoam sbin]# cp -r /etc/modprobe.d/* /backup/tpbackup_`hostname`/OSfiles/modprobe.d
+[root@lithoam sbin]#
+
+----------
+Backup the fstab file:
+# cp /etc/fstab /backup/tpbackup_`hostname`/OSfiles/etc_fstab
+
+[root@lithoam sbin]# cp /etc/fstab /backup/tpbackup_`hostname`/OSfiles/etc_fstab
+[root@lithoam sbin]#
+
+------------
+Backup the mtab file:
+# cp /etc/mtab /backup/tpbackup_`hostname`/OSfiles/etc_mtab
+
+[root@lithoam sbin]# cp /etc/mtab /backup/tpbackup_`hostname`/OSfiles/etc_mtab
+[root@lithoam sbin]#
+
+---------------
+Backup the partitioning information for each logical drive depending on the confguration. Check the existing
+disks and take backup. 
+# ls -lrt /dev/disk/by-path/ | grep -v part
+
+[root@lithoam sbin]# ls -lrt /dev/disk/by-path/ | grep -v part
+total 0
+lrwxrwxrwx 1 root root  9 Oct 14 18:37 pci-0000:02:01.0-scsi-0:0:0:0 -> ../../sr0
+lrwxrwxrwx 1 root root  9 Oct 14 18:37 pci-0000:03:00.0-scsi-0:0:1:0 -> ../../sdb
+lrwxrwxrwx 1 root root  9 Oct 14 18:37 pci-0000:03:00.0-scsi-0:0:0:0 -> ../../sda
+
+
+# sfdisk -d  /dev/sda > /backup/tpbackup_`hostname`/OSfiles/diskpartitionslayout_sda
+# sfdisk -d  /dev/sdb > /backup/tpbackup_`hostname`/OSfiles/diskpartitionslayout_sdb
+
+[root@lithoam sbin]# sfdisk -d  /dev/sda > /backup/tpbackup_`hostname`/OSfiles/diskpartitionslayout_sda
+[root@lithoam sbin]#
+[root@lithoam sbin]# sfdisk -d  /dev/sdb > /backup/tpbackup_`hostname`/OSfiles/diskpartitionslayout_sdb
+[root@lithoam sbin]#
+
+[root@lithoam sbin]# df -kh
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/mapper/vgroot-plat_root
+                      128G  5.2G  117G   5% /
+tmpfs                  45G     0   45G   0% /dev/shm
+/dev/sda1              97M   37M   56M  40% /boot
+/dev/sdb1              69G  668M   65G   1% /backup
+[root@lithoam sbin]#
+
+------------
+Backup the SSH host keys:
+# mkdir /backup/tpbackup_`hostname`/OSfiles/etc_ssh
+# cp /etc/ssh/ssh_host* /backup/tpbackup_`hostname`/OSfiles/etc_ssh/
+
+[root@lithoam sbin]# mkdir /backup/tpbackup_`hostname`/OSfiles/etc_ssh
+[root@lithoam sbin]#
+[root@lithoam sbin]# cp /etc/ssh/ssh_host* /backup/tpbackup_`hostname`/OSfiles/etc_ssh/
+[root@lithoam sbin]#
+
+----------------
+Backup the cron tabs:
+# cp /etc/crontab /backup/tpbackup_`hostname`/OSfiles
+# cp -r /etc/cron.hourly /backup/tpbackup_`hostname`/OSfiles
+# cp -r /etc/cron.daily /backup/tpbackup_`hostname`/OSfiles
+# cp -r /etc/cron.weekly /backup/tpbackup_`hostname`/OSfiles
+# cp -r /etc/cron.monthly /backup/tpbackup_`hostname`/OSfiles
+# cp -r /var/spool/cron /backup/tpbackup_`hostname`/OSfiles
+
+[root@lithoam sbin]# cp /etc/ssh/ssh_host* /backup/tpbackup_`hostname`/OSfiles/etc_ssh/
+[root@lithoam sbin]#
+[root@lithoam sbin]#
+[root@lithoam sbin]# cp /etc/crontab /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]#
+[root@lithoam sbin]# cp -r /etc/cron.hourly /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]#
+[root@lithoam sbin]# cp -r /etc/cron.daily /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]# cp -r /etc/cron.weekly /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]# cp -r /etc/cron.monthly /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]# cp -r /var/spool/cron /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]#
+
+-------------
+Migrate the textpass user, group, password and shadow information:
+# awk -F: '(($3==200))' /etc/passwd >  /backup/tpbackup_`hostname`/OSfiles/textpass_passwd.mig
+# awk -F: '(($3==200))' /etc/group >  /backup/tpbackup_`hostname`/OSfiles/textpass_group.mig
+# awk -F: '(($3==200)) {print $1}' /etc/passwd | tee - |egrep -f - /etc/shadow > /backup/tpbackup_`hostname`/OSfiles/textpass_shadow.mig
+
+[root@lithoam sbin]#
+[root@lithoam sbin]# awk -F: '(($3==200))' /etc/passwd >  /backup/tpbackup_`hostname`/OSfiles/textpass_passwd.mig
+[root@lithoam sbin]# awk -F: '(($3==200))' /etc/group >  /backup/tpbackup_`hostname`/OSfiles/textpass_group.mig
+[root@lithoam sbin]# awk -F: '(($3==200)) {print $1}' /etc/passwd | tee - |egrep -f - /etc/shadow > /backup/tpbackup_`hostname`/OSfiles/textpass_shadow.mig
+[root@lithoam sbin]#
+
+-------------
+Backup the .ssh directory :
+# cp -r /root/.ssh /backup/tpbackup_`hostname`/OSfiles/root_dot_ssh
+
+[root@lithoam sbin]# cp -r /root/.ssh /backup/tpbackup_`hostname`/OSfiles/root_dot_ssh
+[root@lithoam sbin]#
+
+----------
+Backup .ssh directory for textpass user.
+# su - textpass -c "mkdir -p /backup/tpbackup_`hostname`/OSfiles/textpass_dot_ssh/"
+# su - textpass -c "cp -r /usr/TextPass/.ssh/* /backup/tpbackup_`hostname`/OSfiles/textpass_dot_ssh/"
+
+[root@lithoam sbin]# su - textpass -c "mkdir -p /backup/tpbackup_`hostname`/OSfiles/textpass_dot_ssh/"
+[root@lithoam sbin]#
+[root@lithoam sbin]# su - textpass -c "cp -r /usr/TextPass/.ssh/* /backup/tpbackup_`hostname`/OSfiles/textpass_dot_ssh/"
+[root@lithoam sbin]#
+
+-----------------
+Backup iptables and ip6tables configuration.
+For Upgrade from 11/0/15.7/15.8 to 17.9:
+# mkdir -p /backup/tpbackup_`hostname`/OSfiles/iptables_bkp
+# mkdir -p /backup/tpbackup_`hostname`/OSfiles/ip6tables_bkp
+# /etc/init.d/iptables status >> /backup/tpbackup_`hostname`/OSfiles/iptables_bkp/iptable_status
+# /etc/init.d/ip6tables status >> /backup/tpbackup_`hostname`/OSfiles/ip6tables_bkp/ip6table_status
+# service iptables save
+# service ip6tables save
+
+[root@lithoam sbin]# mkdir -p /backup/tpbackup_`hostname`/OSfiles/iptables_bkp
+[root@lithoam sbin]# mkdir -p /backup/tpbackup_`hostname`/OSfiles/ip6tables_bkp
+[root@lithoam sbin]# /etc/init.d/iptables status >> /backup/tpbackup_`hostname`/OSfiles/iptables_bkp/iptable_status
+[root@lithoam sbin]# /etc/init.d/ip6tables status >> /backup/tpbackup_`hostname`/OSfiles/ip6tables_bkp/ip6table_status
+[root@lithoam sbin]# service iptables save
+[root@lithoam sbin]# service ip6tables save
+
+--------------
+Backup the general information about the current state of the system as listed below:
+Store the output of below commands in other_checks.txt.
+For Upgrade from 11.0/15.7/15.8 to 17.9:
+# date
+# df -kh
+# hostid
+# hostname
+# hostname -i
+# ifconfig -a
+# ntpq -p
+# service textpass_tools status
+# netstat -rn
+# chkconfig --list
+
+Redirect the output to the file as below:
+# cat << EOF > /backup/tpbackup_`hostname`/other_checks.txt
+# vi /backup/tpbackup_lithoam/other_checks.txt
+
+Backup the NMM-OS-release
+# cp /usr/local/etc/NMM-OS-release /backup/tpbackup_`hostname`/OSfiles
+
+[root@lithoam sbin]# cp /usr/local/etc/NMM-OS-release /backup/tpbackup_`hostname`/OSfiles
+[root@lithoam sbin]#
+
+------------------
+Backup Non-System Users
+List the non-system user and their respective home directory.
+NOTE: If the output of the below command is empty, skip this complete section.
+For Upgrade from 11.0/15.7/15.8 to 17.9:
+# awk -F: '(($3>=500) && ($3<65534)) {print $1, $6}' /etc/passwd
+
+[root@lithoam sbin]# awk -F: '(($3>=500) && ($3<65534)) {print $1, $6}' /etc/passwd
+[root@lithoam sbin]#
+
+---------------
+Create a directory to take the backup of users:
+# mkdir /backup/tpbackup_`hostname`/users/
+# cd /backup/tpbackup_`hostname`/users/
+
+[root@lithoam sbin]# mkdir /backup/tpbackup_`hostname`/users/
+[root@lithoam sbin]#
+[root@lithoam sbin]# cd /backup/tpbackup_`hostname`/users/
+
+------------
+Migrate the non-system user, group, password and shadow information:
+For Upgrade from 11.0/15.7/15.8 to 17.9:
+# awk -F: '( ($3>=500) && ($3<65534))' /etc/passwd >  /backup/tpbackup_`hostname`/OSfiles/non_textpass_passwd.mig
+# awk -F: '( ($3>=500) && ($3<65534))' /etc/group > /backup/tpbackup_`hostname`/OSfiles/non_textpass_group.mig
+# awk -F: '( ($3>=500) && ($3<65534)) {print $1}' /etc/passwd | tee - |egrep -f - /etc/shadow > /backup/tpbackup_`hostname`/OSfiles/non_textpass_shadow.mig
+
+[root@lithoam users]# awk -F: '( ($3>=500) && ($3<65534))' /etc/passwd >  /backup/tpbackup_`hostname`/OSfiles/non_textpass_passwd.mig
+[root@lithoam users]# awk -F: '( ($3>=500) && ($3<65534))' /etc/group > /backup/tpbackup_`hostname`/OSfiles/non_textpass_group.mig
+[root@lithoam users]# awk -F: '( ($3>=500) && ($3<65534)) {print $1}' /etc/passwd | tee - |egrep -f - /etc/shadow > /backup/tpbackup_`hostname`/OSfiles/non_textpass_shadow.mig
+[root@lithoam users]#
+
+-------------
+Backup Component Configurations Files and Licenses
+Log in as textpass user.
+# su - textpass
+Backup the configurations and license:
+$ mkdir -p /backup/tpbackup_`hostname`/textpass
+$ cd /backup/tpbackup_`hostname`/textpass
+$ tar -cPvf `hostname`-<base_release>-backup.tar /usr/TextPass/etc
+$ tar -uPvf `hostname`-<base_release>-backup.tar /usr/TextPass/.store
+
+[root@lithoam users]# su - textpass
+[textpass@lithoam ~]$ mkdir -p /backup/tpbackup_`hostname`/textpass
+[textpass@lithoam ~]$ cd /backup/tpbackup_`hostname`/textpass
+[textpass@lithoam textpass]$ tar -cPvf `hostname`-14.8-backup.tar /usr/TextPass/etc
+[textpass@lithoam textpass]$ tar -uPvf `hostname`-14.8-backup.tar /usr/TextPass/.store
+/usr/TextPass/.store/
+/usr/TextPass/.store/.nvr.BAT
+[textpass@lithoam textpass]$
+
+---------------
+If a MySQL server is present, backup the MySQL server configuration(s) .
+$ tar -uPvf `hostname`-<base_release>-backup.tar /etc/my.cnf
+
+[textpass@lithoam textpass]$ tar -uPvf `hostname`-14.8-backup.tar /etc/my.cnf
+/etc/my.cnf
+[textpass@lithoam textpass]$
+
+-------------
+On the system that runs the NDB cluster manager (typically the OAM Element), backup the NDB database configuration file:
+$ tar -uPvf `hostname`-<base_release>-backup.tar /var/lib/mysql-cluster/config.ini
+
+[textpass@lithoam textpass]$ tar -uPvf `hostname`-14.8-backup.tar /var/lib/mysql-cluster/config.ini
+/var/lib/mysql-cluster/config.ini
+[textpass@lithoam textpass]$
+
+---------------
+Backup OAM Configurations
+MGR Configuration Backup. Log in to the OAM Element server as user root.
+Execute the MGR check and save the output to a file (this information is required for troubleshooting).
+# /usr/TextPass/bin/tp_install_mgr --check > /backup/tpbackup_`hostname`/MGR_Check
+
+[textpass@lithoam textpass]$ /usr/TextPass/bin/tp_install_mgr --check > /backup/tpbackup_`hostname`/MGR_Check
+[textpass@lithoam textpass]$
+
+-----------------
+Switch to textpass user and Backup the MGR configuration files:
+# su - textpass
+$ cd /backup/tpbackup_`hostname`/textpass
+$ tar -cvPf MGR-<base_version>-backup.tar /opt/TextPass/MGR/<R#.#.#.#>/images/customer_logo.gif
+$ tar -uvPf MGR-<base_version>-backup.tar /var/TextPass/MGR
+
+-----------------
+LGR Configuration Backup, If LGR is installed on OAM node:
+Login as root and create the directory lgr_backup
+# mkdir /backup/tpbackup_`hostname`/textpass/lgr_backup
+# cd /backup/tpbackup_`hostname`/textpass/lgr_backup
+
+[textpass@lithoam textpass]$ mkdir /backup/tpbackup_`hostname`/textpass/lgr_backup
+[textpass@lithoam textpass]$ cd /backup/tpbackup_`hostname`/textpass/lgr_backup
+[textpass@lithoam lgr_backup]$
+
+------------------
+Backup the LGR configuration files:
+# cp /usr/TextPass/etc/settings.properties .
+# cp /usr/TextPass/etc/quartz.properties .
+# tar -cf /backup/tpbackup_`hostname`/textpass/lgr_backup/lgr_repo_folder_backup.tar /usr/TextPass/lgr-repo
+
+---------------------
+Backup MySQL Database Directory
+Login to the server as user root and take the backup of mysqldata directory. For 11.0/15.7/15.8:
+# service mysql stop
+# mkdir -p /backup/tpbackup_`hostname`/MySQL/Server/<MySQL base version>
+# cd /backup/tpbackup_`hostname`/MySQL/Server/<MySQL base version>
+# tar -zcvf mysqldata.tar.gz /data/mysqldata
+
+
+							******* AFTER APPENDIX A BACKUPS GO TO APPENDIX B FOR OAM NODE****
+							
+Backup OAM Configuration and Database
+If MGR is running in Replication Mode (master-slave mode), then execute the steps as mentioned in section 8.8 to break the MySQL replica configuration.
+1. Login to the all the Poller nodes as textpass and stop STV Poller process
+# su - textpass
+$ stv_poller --stop	
+
+Backup the stv_poller configuration files:
+$ cd /backup/tpbackup_`hostname`/textpass/
+$ tar -cPvf STV-`hostname`-<base_release>-backup.tar /var/TextPass/STV/
+
+Login to OAM Element as root.
+Monitor the log messages of the STV database importer daemon:
+# tail -f /var/log/STV/stv_db_importer
+
+
+When no new messages appear for each polling interval, continue with the next step. Refer to the
+Statistics>Settings>Polling Intervals to check the polling intervals.
+
+Stop the STV processes
+Log in as textpass user
+# su - textpass
+$ stv_poll_config_sync --stop
+$ stv_poll_collector --stop
+$ stv_db_importer --stop
+
+Stop mgrd and other processes (If BAT installed)
+$ tp_stop
+
+Switch to user root and edit the cron file. Ignore if it was already done earlier
+$ exit
+# crontab -e
+a) Comment the stv_db_aggregate and stv_db_archive entries.
+b) Delete the stv_db_importer entry if present in crontab file.
+
+**DL comment Ensure Mysql is running b4 running below two steps ****
+Login as root and Stop the MGR and Apache
+# /usr/TextPass/bin/tp_mgr_stop
+NOTE: While the MGR is stopped, you cannot use it to interact with the system.
+
+Backup the MGR database:
+# /usr/TextPass/bin/tp_mgr_backup --name=/backup/tpbackup_`hostname`/MGRDatabase.sql
+tp_mgr_backup appends the date to this file name and compresses the file using gzip.
+
+Stop the CCI:
+# /usr/TextPass/bin/tp_cci_stop
+
+Stop the MySQL Cluster Manager if installed.
+For 11.0/15.7/15.8:
+# /etc/init.d/ndb_mgmd stop
+
+Stop the mysql service and take the Database backup.
+For 11.0/15.7/15.8:
+# service mysql stop
+# mkdir -p /backup/tpbackup_`hostname`/MySQL/Server/<MySQL_version>
+# cd /backup/tpbackup_`hostname`/MySQL/Server/<MySQL_version>
+# tar -zcvf mysqldata.tar.gz /data/mysqldata
+
+
+				*********AT B3 SECTION GO TO APPENDIX E *********
+
+Instal RHEL 7 OS 
+
+E.4 Verification of File Systems Post Upgrade
+E.4.1 OAM Element
+1. Disk and its partitioning on OAM.
+Use command “ls -lrt /dev/disk/by-label/” to see the available disks and its partitions.
+
+Restore the entries for required disks in /etc/fstab using the RHEL 6 /etc/fstab backup.
+Below is fstab of 14.8 RHEL6
+[root@lithoam sbin]# cat /etc/fstab
+
+#
+# /etc/fstab
+# Created by anaconda on Fri Oct 11 03:14:38 2019
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk'
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+#
+/dev/mapper/vgroot-plat_root /                       ext3    defaults        1 1
+UUID=b7de94d1-c1e9-4af5-bec6-36b6e879b9f1 /boot                   ext3    defaults        1 2
+tmpfs                   /dev/shm                tmpfs   defaults        0 0
+devpts                  /dev/pts                devpts  gid=5,mode=620  0 0
+sysfs                   /sys                    sysfs   defaults        0 0
+proc                    /proc                   proc    defaults        0 0
+nlna01:/home /home nfs defaults 0 0
+nlna01:/development /home/development nfs defaults 0 0
+nlna01:/support /home/support nfs defaults 0 0
+nlna01:/open_source /opt/open_source nfs defaults 0 0
+nlna01:/installimages /opt/installimages nfs defaults 0 0
+/dev/sdb1       /backup ext4    defaults        1 2
+
+
+Sample /etc/fstab of RHEL6 from IM
+#
+# /etc/fstab
+# Created by anaconda on Mon Jul 10 01:30:54 2017
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk'
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+#
+LABEL=/ / ext3 defaults 1 1
+LABEL=/boot /boot ext3 defaults 1 2
+LABEL=/var /var ext3 defaults 1 2
+LABEL=/var/TextPass /var/TextPass ext3 defaults 1 2
+LABEL=swap swap swap defaults 0 0
+tmpfs /dev/shm tmpfs defaults 0 0
+devpts /dev/pts devpts gid=5,mode=620 0 0
+sysfs /sys sysfs defaults 0 0
+proc /proc proc defaults 0 0
+LABEL=/data /data ext3 barrier=0,noatime 0 0
+LABEL=/var/log/STV /var/log/STV ext3 barrier=0,noatime 0 0
+
+
+NB:
+Incorporate the /data/ /var/log/STV and /backup informations to /etc/fstab
+
+Create below directories in OAM
+# mkdir /data
+# mkdir /var/log/STV
+# mkdir /backup
+
+Execute the below command to mount all filessytems.
+# mount -a
+
+Verify the new mount points(/data /var/log/STV and /backup) using “df -kh” command.
+
+E.5 Restore OS Configuration
+1. Restore the hostname noted prior to upgrade.
+# hostnamectl set-hostname <hostname> --static
+# cat /etc/hostname
+oam
+
+2. Restore the network interfaces and routes
+# cp /backup/tpbackup_`hostname`/OSfiles/network_scripts/ifcfg-* /etc/sysconfig/networkscripts
+# cp /backup/tpbackup_`hostname`/OSfiles/network_scripts/route-* /etc/sysconfig/networkscripts
+# cd /backup/tpbackup_`hostname`/OSfiles
+# cat etc_sysconfig_network
+NETWORKING=yes
+HOSTNAME=oam
+NETWORKING_IPV6=yes
+GATEWAY=10.200.0.1
+
+Start the network:
+# systemctl start network
+
+3. Restore host information from the backup.
+# cp /backup/tpbackup_`hostname`/OSfiles/host_bkp/host* /etc/
+# hostid
+
+
+4. Restore ntp.conf, resolve.conf files backup to /etc
+# cp /backup/tpbackup_`hostname`/OSfiles/host_bkp/etc_ntp.conf /etc/ntp.conf
+# cp /backup/tpbackup_`hostname`/OSfiles/host_bkp/etc_resolv.conf /etc/resolv.conf
+
+To enable the service on boot time start the ntp service
+# systemctl enable ntpd
+# systemctl start ntpd
+
+5. Restore TimeZone.
+a. Log in as root.
+b. Set the TZ variable to the required time zone from the backed up file
+# cp /backup/tpbackup_`hostname`/OSfiles/tz.sh /etc/profile.d/tz.sh
+
+c. Restart the node to confirm that the correct time zone is established (This Timezone information is
+needed for the components to work. So this step can be executed after the components installed)
+# reboot
+
+d. Log in as root.
+e. Verify the TZ setting:
+# echo $TZ
+
+Restore sysctl.conf.
+# cat /backup/tpbackup_`hostname`/OSfiles/sysctl.conf >> /etc/sysctl.d/99-sysctl.conf
+
+NOTE: The kernel.core_pattern is different in pre 16.0 releases compared to 16.x and above releases. After restore, there may be two entries for kernel.core_pattern.
+Remove the below line which is restored from the pre 16.x/17.x release:
+
+kernel.core_pattern = /var/TKLC/core/core.%e.%p in the 99-sysctl.conf.
+
+The correct parameter setting is as introduced in 16.x/17.x release is:
+kernel.core_pattern = |/usr/local/bin/gzip.sh /var/TKLC/core/core.%e.%p.gz
+
+After the changes, re- load the config
+# sysctl -p /etc/sysctl.d/99-sysctl.conf
+
+7. Restore authorized keys and known_hosts files
+NOTE: Create ~/.ssh directory if doesn’t exist.
+# ls -ltra | grep -i .ssh
+# mkdir ~/.ssh
+
+Copy the required files
+# cp /backup/tpbackup_`hostname`/OSfiles/root_dot_ssh/* ~/.ssh/
+# chmod 600 ~/.ssh/authorized_keys ~/.ssh/known_hosts
+
+8. Restore /etc/ssh/ and update permission and user group
+The ssh keys at /etc/ssh have different group and permissions on RHEL 7 system.
+# chmod 0640 /etc/ssh/*_key
+# chown root:ssh_keys /etc/ssh/*_key
+
+9. Restore logrotate.conf
+# cp /backup/tpbackup_`hostname`/OSfiles/etc_logrotate/logrotate.conf /etc/logrotate.conf
+
+10. Restore non-system users home directory
+a. Untar the <user_name>.tar to the root directory.
+# tar -C / -xvf /backup/tpbackup_`hostname`/users/<user_name>.tar
+
+11. Re-create the non-textpass users information..
+# cat /backup/tpbackup_`hostname`/OSfiles/non_textpass_passwd.mig >> /etc/passwd
+# cat /backup/tpbackup_`hostname`/OSfiles/non_textpass_group.mig >> /etc/group
+# cat /backup/tpbackup_`hostname`/OSfiles/non_textpass_shadow.mig >> /etc/shadow
+NOTE: Verify that all the users are added on the server for non textpass users.
+
+12. If the iptable rules exist, restore iptables and start the services
+# cp /backup/tpbackup_`hostname`/OSfiles/iptables_bkp/iptables /etc/sysconfig/iptables
+# cp /backup/tpbackup_`hostname`/OSfiles/ip6tables_bkp/ip6tables /etc/sysconfig/ip6tables
+# systemctl enable iptables
+# systemctl enable ip6tables
+# systemctl start iptables
+# systemctl start ip6tables
+
+13. Restore cron jobs. Overwrite the existing files.
+# cp /backup/tpbackup_`hostname`/OSfiles/crontab /etc
+# cp -r /backup/tpbackup_`hostname`/OSfiles/cron.hourly /etc
+# cp -r /backup/tpbackup_`hostname`/OSfiles/cron.daily /etc
+# cp -r /backup/tpbackup_`hostname`/OSfiles/cron.weekly /etc
+# cp -r /backup/tpbackup_`hostname`/OSfiles/cron.monthly /etc
+# cp -r /backup/tpbackup_`hostname`/OSfiles/cron /var/spool
+
+E.6 Copy NMM Software Packages.
+1. Login to the server as user root.
+
+2. Mount the ISO.
+# mkdir -p /mnt/iso
+# mount -t udf /path/to/iso/<filename>.iso /mnt/iso -o loop
+# ls /mnt/iso
+md5sums.xml MIBS SW
+NOTE: Ignore the following warning during mount
+mount: /dev/loop0 is write-protected, mounting read-only
+
+3. Copy the SW to /var/Packages
+# cp -r /mnt/iso/SW /var/Packages/
+
+4. Unmount the ISO:
+# umount /mnt/iso
+
+5. Enable the local SW repository for yum.
+# yum-config-manager --enable lithium-SW-repo-Local
+
+
+
+
+							*************AFTER APPENDIX E GO TO BACK TO APPENDIX B SECTION B4******
+
+B.4 Install NMM packages
+NOTE: There is no longer an OpenSource and TextPassTools installation step. The dependency will be resolved
+by yum when installing the individual components.
+
+1. Login as root. Install MGR
+# yum install TextPassMGR
+
+NOTE: yum installation prompts for [y/N]. Press y to proceed.
+
+2. Set password for textpass using passwd textpass
+# passwd textpass
+Changing password for user textpass.
+New password:
+Retype new password:
+passwd: all authentication tokens updated successfully
+
+NOTE: Do not run tp_install_mgr after the software is installed.
+
+3. Install STV:
+# yum install TextPassSTVstvnode TextPassSTVmgrnode
+
+NOTE: If you are installing STV on a standby node and you may not want STV services to start
+automatically at boot time, then install the package TextPassSTVstandby along with the others.. For example:
+# yum install TextPassSTVstvnode TextPassSTVmgrnode
+
+4. Install CCI:
+# yum install TextPassCCI
+
+5. Install BAT:
+# yum install TextPassBAT
+
+6. Install LGR (if required)
+# yum install TextPassLGR
+
+B.5 Access Backup Data
+On a upgraded system, to easy access the backup data follow below steps.
+
+1. Login as textpass user.
+# su - textpass
+
+2. Create a new directory OAM_backup_config in /backup/tpbackup_`hostname` as textpass user
+$ cd /backup/tpbackup_`hostname`
+$ mkdir -p /backup/tpbackup_`hostname`/OAM_backup_config
+
+3. Untar the NMM config `hostname`_<base_release>-backup.tar to the OAM_backup_config directory.
+$ tar -C OAM_backup_config/ -xvf textpass/`hostname`-<base_version>-backup.tar
+
+4. Untar the OAM config `MGR`_<base_release>-backup.tar to the OAM_backup_config directory.
+$ tar -C OAM_backup_config/ -xvf textpass/MGR-<base_release>-backup.tar
+
+5. Extract the STV config file.
+$ cd /backup/tpbackup_`hostname`/OAM_backup_config
+$ /usr/bin/gtar -xvf ../textpass/STV-`hostname`-<base_release>-backup.tar
+
+B.6 Install the License Files
+1. If requested new license files, copy them to /usr/TextPass/etc, else copy the license and .store from the backup:
+
+# cp /backup/tpbackup_`hostname`/OAM_backup_config/usr/TextPass/etc/*.lic /usr/TextPass/etc/
+# chown textpass:textpass /usr/TextPass/etc/*.lic
+# cp -r /backup/tpbackup_`hostname`/OAM_backup_config/usr/TextPass/.store/ /usr/TextPass/
+# chown textpass:textpass /usr/TextPass/.store
+# chown textpass:textpass /usr/TextPass/.store/.nvr*
+
+B.7 Restore the .ssh for textpass User
+# cp /backup/tpbackup_`hostname`/OSfiles/textpass_dot_ssh/* /usr/TextPass/.ssh
+# chown -R textpass:textpass /usr/TextPass/.ssh/*
+
+B.8 MySQL Setup
+B.8.1 Configure MySQL Data Directories
+
+1. Log in as root.
+2. Copy the my.cnf file saved earlier in backup to /etc/my.cnf
+NOTE: There will be /etc/my.cnf existing after the OS Installtion. Overwrite the file with the backup
+my.cnf
+# cp /backup/tpbackup_`hostname`/OAM_backup_config/etc/my.cnf /etc/
+
+3. In /etc/my.cnf check the “character-set-server” and “collation_server” parameters in
+[mysqld] section, if they are not specified, then set these parameters as mentioned below :
+
+[mysqld]
+collation_server = utf8_general_ci
+character-set-server = utf8
+
+If tmpdir=/data/mysql_tmp is not set in /etc/my.cnf under [mysqld], create the directory and set in
+/etc/my.cnf as below.
+# mkdir -p /data/mysql_tmp
+# chmod 777 /data/mysql_tmp
+
+[mysqld]
+…………………………………………
+tmpdir=/data/mysql_tmp
+…………………………………………
+4. For upgrade from 11.0 to 16.x/17.x, modify the parameter table_cache to table_open_cache in my.cnf .
+
+5. Set directory permissions
+# chown -R mysql:mysql /data/mysqldata 
+
+6. Start mysql service and check the the status.
+# systemctl start mysql
+# systemctl status mysql
+
+7. Save MySQL login credentials for MySQL Execute below command from root user. Enter the MySQL root password when it asks:
+
+# mysql_config_editor set --login-path=mysql_root --host=localhost --user=root --skip_warn --password
+Enter password:
+
+Execute the same command for the textpass user as below:
+# mysql_config_editor set --login-path=textpass --host=localhost --user=textpass --skip_warn --password
+Enter password:
+
+Following command can be used to check if MySQL login credentials have already been saved or not for MySQL.
+# mysql_config_editor print --all
+
+8. Note that if MGR is running in replication mode(master-slave) then execute the steps as mentioned in
+Chapter 8 to upgrade the MySQL replica configuration as per new version of MySQL supported
+
+9.Execute the mysql upgrade command to examine all tables in all databases for incompatibilities with the
+current version of MySQL Server
+# mysql_upgrade --login-path=mysql_root
+
+This command may take a long time to complete since it checks all the tables in the database.
+NOTE: Ignore below warnings
+Warning : Row size too large (> 8126). Changing some columns to TEXT or BLOB or using
+ROW_FORMAT=DYNAMIC or ROW_FORMAT=COMPRESSED may help. In current row format, BLOB prefix of
+768 bytes is stored inline.
+status : OK
+lgp.lgp_inb_msg_20170721
+Warning : Row size too large (> 8126). Changing some columns to TEXT or BLOB or using
+ROW_FORMAT=DYNAMIC or ROW_FORMAT=COMPRESSED may help. In current row format, BLOB prefix of
+768 bytes is stored inline.
+************
+
+10. Restart the MySQL server:
+# systemctl restart mysql
+# systemctl status mysql
+
+11. Verify that InnoDB is running and all the innodb_variables are listed:
+# mysql --login-path=mysql_root mysql -e "show variables like '%innodb%';"
+
+
+B.8.2 Install MySQL Cluster Manager on the OAM Element (the management node).
+This section is to be performed if OAM acted as a Cluster manager prior to upgrade.
+To install MySQL Cluster Manager:
+
+1. Log in as root on the OAM Element.
+2. Install MySQL Cluster Manager:
+# yum install TextPassMySQL-Cluster-management
+
+3. Install MySQL Cluster tools package:
+NOTE: This package contains ndbcluster storage engine basic tools and is useful for troubleshooting.
+# yum install TextPassMySQL-Cluster-tools
+
+4. Restore config.ini:
+# cp /backup/tpbackup_`hostname`/OAM_backup_config/var/lib/mysql-cluster/config.ini /var/lib/mysql-cluster/config.ini
+
+5. Configure MySQL Cluster Manager to automatically start at boot:
+# systemctl enable ndb_mgmd
+
+6. Start MySQL Cluster Manager and check the cluster connection status:
+# systemctl start ndb_mgmd
+# ndb_mgm -e "SHOW"
+
+B.9 Restore BAT, MGR and STV
+1. Login as root and restore he BAT list files from backup.
+# cp /backup/tpbackup_`hostname`/OAM_backup_config/var/TextPass/MGR/distribution_lists/* /var/TextPass/MGR/distribution_lists/
+# chown textpass:textpass /var/TextPass/MGR/distribution_lists/*
+
+2. Switch to user textpass and restore distribution list files in /usr/TextPass/etc/:
+# su - textpass
+$ cp /backup/tpbackup_`hostname`/OAM_backup_config/usr/TextPass/etc/*.bin /usr/TextPass/etc/
+$ exit
+
+3. Restore the configuration from backup:
+# cp /backup/tpbackup_`hostname`/OAM_backup_config/usr/TextPass/etc/role /usr/TextPass/etc/
+# cp /backup/tpbackup_`hostname`/OAM_backup_config/usr/TextPass/etc/`hostname`_config.txt /usr/TextPass/etc/
+# cp /backup/tpbackup_`hostname`/OAM_backup_config/usr/TextPass/etc/common_config.txt /usr/TextPass/etc/
+
+4. Change the owner of the host specific and common config files:
+# chown textpass:textpass /usr/TextPass/etc/`hostname`_config.txt
+# chown textpass:textpass /usr/TextPass/etc/common_config*.txt
+
+5. Restore the customer logo image from backed up release to current installed MGR release:
+# cp /backup/tpbackup_`hostname`/OAM_backup_config/opt/TextPass/MGR/R#.#.#.#/images/customer_logo.gif /opt/TextPass/MGR/R#.#.#.#/images/
+
+6. Restore the STV:
+# cp -r /backup/tpbackup_`hostname`/OAM_backup_config/var/TextPass/STV/* /var/TextPass/STV/
+# chown textpass:textpass /var/TextPass/STV -R
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-------------
+To Upgrade from 11.0/15.7/15.8 to 17.9:
+After taking the required backup files, use the procedures in Appendix E for breaking the OS disk RAID
+array and RHEL7 OS Installation and Configurations. After the OS is Upgraded, continue with the section
+8.12 below for NMM upgrade and restore of textpass configurations from backup.
+
+--------
+
+
+								AFTER RHEL INSTALLATION
+						
+[root@localhost ~]# lsblk
+NAME                       MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
+sda                          8:0    0   130G  0 disk
+├─sda1                       8:1    0   500M  0 part /boot
+├─sda2                       8:2    0     4G  0 part [SWAP]
+└─sda3                       8:3    0 125.5G  0 part
+  ├─tproot-lv_root         253:0    0    10G  0 lvm  /
+  ├─tproot-lv_var_textpass 253:1    0  69.3G  0 lvm  /var/TextPass
+  └─tproot-lv_var          253:2    0  17.3G  0 lvm  /var
+sdb                          8:16   0    70G  0 disk
+└─sdb1                       8:17   0    70G  0 part
+sr0                         11:0    1   1.3G  0 rom
+[root@localhost ~]# mkdir -p /backup
+[root@localhost ~]#
+[root@localhost ~]# mount -t auto /dev/sdb1 /backup
+[root@localhost ~]#
+[root@localhost ~]# lsblk
+NAME                       MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
+sda                          8:0    0   130G  0 disk
+├─sda1                       8:1    0   500M  0 part /boot
+├─sda2                       8:2    0     4G  0 part [SWAP]
+└─sda3                       8:3    0 125.5G  0 part
+  ├─tproot-lv_root         253:0    0    10G  0 lvm  /
+  ├─tproot-lv_var_textpass 253:1    0  69.3G  0 lvm  /var/TextPass
+  └─tproot-lv_var          253:2    0  17.3G  0 lvm  /var
+sdb                          8:16   0    70G  0 disk
+└─sdb1                       8:17   0    70G  0 part /backup
+sr0                         11:0    1   1.3G  0 rom
+
+[root@localhost ~]# cat /etc/fstab
+
+#
+# /etc/fstab
+# Created by anaconda on Tue Oct 15 12:20:37 2019
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk'
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+#
+/dev/mapper/tproot-lv_root /                       ext3    defaults        1 1
+UUID=2eaf7ddb-dc9f-4a9b-9bad-23e63919f6a0 /boot                   ext3    defaults        1 2
+/dev/mapper/tproot-lv_var /var                    ext3    defaults        1 2
+/dev/mapper/tproot-lv_var_textpass /var/TextPass           ext3    defaults        1 2
+UUID=97da74e6-7535-42a1-90ef-0932c94541ab swap                    swap    defaults        0 0
+[root@localhost ~]#
+[root@localhost ~]#
+[root@localhost ~]# df -hT
+Filesystem                         Type      Size  Used Avail Use% Mounted on
+/dev/mapper/tproot-lv_root         ext3      9.8G  1.2G  8.1G  13% /
+devtmpfs                           devtmpfs   45G     0   45G   0% /dev
+tmpfs                              tmpfs      45G     0   45G   0% /dev/shm
+tmpfs                              tmpfs      45G   12M   45G   1% /run
+tmpfs                              tmpfs      45G     0   45G   0% /sys/fs/cgroup
+/dev/sda1                          ext3      477M  120M  332M  27% /boot
+/dev/mapper/tproot-lv_var          ext3       17G  749M   16G   5% /var
+/dev/mapper/tproot-lv_var_textpass ext3       69G   52M   65G   1% /var/TextPass
+tmpfs                              tmpfs     8.9G     0  8.9G   0% /run/user/0
+/dev/sdb1                          ext4       69G   53M   66G   1% /backup
+[root@localhost ~]#
+[root@localhost ~]# cat /etc/hosts
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+[root@localhost ~]#
+[root@localhost ~]#
+[root@localhost ~]# ls -lrt /dev/disk/by-label/
+total 0
+lrwxrwxrwx 1 root root 10 Oct 15 14:33 SWAP -> ../../sda2
+lrwxrwxrwx 1 root root  9 Oct 15 14:33 NMMOS -> ../../sr0
+lrwxrwxrwx 1 root root 10 Oct 15 14:33 \x2fboot -> ../../sda1
+[root@localhost ~]#
+[root@localhost ~]# cd /backup/
+[root@localhost backup]# pwd
+/backup
+[root@localhost backup]# ls -rtl
+total 42828
+-rw-r--r-- 1 root root 43837440 Oct 15 12:28 OAM-14.8-backup.tar
+drwx------ 2 root root    16384 Oct 15 14:38 lost+found
+[root@localhost backup]# tar -xvf OAM-14.8-backup.tar
+[root@localhost backup]# ls -rtl
+total 42832
+-rw-r--r-- 1 root root 43837440 Oct 15 12:28 OAM-14.8-backup.tar
+drwx------ 2 root root    16384 Oct 15 14:38 lost+found
+drwxr-xr-x 3 root root     4096 Oct 15 15:18 backup
+[root@localhost backup]# cd backup/
+[root@localhost backup]# ll
+total 4
+drwxrwxrwx 6 root root 4096 Oct 15 12:17 tpbackup_lithoam
+[root@localhost backup]# pwd
+/backup/backup
+[root@localhost backup]# mv tpbackup_lithoam/ /backup/
+[root@localhost backup]# ls -rtl
+total 42832
+drwxrwxrwx 6 root root     4096 Oct 15 12:17 tpbackup_lithoam
+-rw-r--r-- 1 root root 43837440 Oct 15 12:28 OAM-14.8-backup.tar
+drwx------ 2 root root    16384 Oct 15 14:38 lost+found
+[root@localhost backup]# pwd
+/backup
+[root@localhost backup]# hostnamectl set-hostname lithoam --static
+[root@localhost backup]#
+[root@localhost backup]# hostname
+lithoam
+[root@localhost backup]# cat /etc/hostname
+lithoam
+[root@localhost backup]# cp /backup/tpbackup_`hostname`/OSfiles/network_scripts/ifcfg-* /etc/sysconfig/network-scripts
+cp: overwrite ‘/etc/sysconfig/network-scripts/ifcfg-eth0’? y
+cp: overwrite ‘/etc/sysconfig/network-scripts/ifcfg-lo’? y
+[root@localhost backup]#
+[root@localhost backup]#
+[root@localhost backup]#
+[root@localhost backup]# cp /backup/tpbackup_`hostname`/OSfiles/network_scripts/route-* /etc/sysconfig/network-scripts
+cp: cannot stat ‘/backup/tpbackup_lithoam/OSfiles/network_scripts/route-*’: No such file or directory
+[root@localhost backup]#
+[root@localhost backup]#
+[root@localhost backup]# cd /backup/tpbackup_`hostname`/OSfiles
+[root@localhost OSfiles]# cat etc_sysconfig_network
+HOSTNAME=lithoam
+NETWORKING=yes
+NISDOMAIN=newnet.local
+[root@localhost OSfiles]# cat etc_sysconfig_network
+HOSTNAME=lithoam
+NETWORKING=yes
+NISDOMAIN=newnet.local
+[root@localhost OSfiles]# cat /etc/sysconfig/network-scripts/ifcfg-eth0
+DEVICE=eth0
+HWADDR=00:50:56:9E:FF:10
+TYPE=Ethernet
+UUID=3159e6df-3e03-4a51-965f-a4ef51338788
+ONBOOT=yes
+NM_CONTROLLED=yes
+BOOTPROTO=dhcp
+[root@localhost OSfiles]# systemctl start network
+[root@localhost OSfiles]#
+[root@localhost OSfiles]# systemctl status network
+● network.service - LSB: Bring up/down networking
+   Loaded: loaded (/etc/rc.d/init.d/network; bad; vendor preset: disabled)
+   Active: active (running) since Tue 2019-10-15 14:35:58 CEST; 1h 26min ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 15701 ExecStop=/etc/rc.d/init.d/network stop (code=exited, status=0/SUCCESS)
+  Process: 15802 ExecStart=/etc/rc.d/init.d/network start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/network.service
+           └─15982 /sbin/dhclient -1 -q -lf /var/lib/dhclient/dhclient-ab7b1cd5-9e51-4744-a025-6b5b2dd07f2a-eth0.lease -pf /var/run/dhclient-eth...
+
+Oct 15 14:35:49 localhost.localdomain network[15802]: Bringing up loopback interface:  [  OK  ]
+Oct 15 14:35:49 localhost.localdomain network[15802]: Bringing up interface eth0:
+Oct 15 14:35:49 localhost.localdomain dhclient[15937]: DHCPDISCOVER on eth0 to 255.255.255.255 port 67 interval 7 (xid=0x421790b7)
+Oct 15 14:35:50 localhost.localdomain dhclient[15937]: DHCPREQUEST on eth0 to 255.255.255.255 port 67 (xid=0x421790b7)
+Oct 15 14:35:50 localhost.localdomain dhclient[15937]: DHCPOFFER from 10.183.141.1
+Oct 15 14:35:50 localhost.localdomain dhclient[15937]: DHCPACK from 10.183.141.1 (xid=0x421790b7)
+Oct 15 14:35:52 localhost.localdomain dhclient[15937]: bound to 10.183.141.46 -- renewal in 37399 seconds.
+Oct 15 14:35:52 localhost.localdomain network[15802]: Determining IP information for eth0... done.
+Oct 15 14:35:58 localhost.localdomain network[15802]: [  OK  ]
+Oct 15 14:35:58 localhost.localdomain systemd[1]: Started LSB: Bring up/down networking.
+[root@localhost OSfiles]#
+[root@localhost OSfiles]#
+[root@localhost OSfiles]# cp /backup/tpbackup_`hostname`/OSfiles/host_bkp/host* /etc/
+cp: overwrite ‘/etc/host.conf’? n
+cp: overwrite ‘/etc/hosts’? n
+cp: overwrite ‘/etc/hosts.allow’? n
+cp: overwrite ‘/etc/hosts.deny’? n
+[root@localhost OSfiles]# hostid
+2e6c4340
+[root@localhost OSfiles]#
+[root@localhost OSfiles]# cp /backup/tpbackup_`hostname`/OSfiles/host_bkp/host* /etc/
+cp: overwrite ‘/etc/host.conf’? y
+cp: overwrite ‘/etc/hostid’? y
+cp: overwrite ‘/etc/hosts’? y
+cp: overwrite ‘/etc/hosts.allow’? y
+cp: overwrite ‘/etc/hosts.deny’? y
+[root@localhost OSfiles]# hostid
+2e6c4340
+[root@localhost OSfiles]# cp /backup/tpbackup_`hostname`/OSfiles/host_bkp/etc_ntp.conf /etc/ntp.conf
+cp: cannot stat ‘/backup/tpbackup_lithoam/OSfiles/host_bkp/etc_ntp.conf’: No such file or directory
+[root@localhost OSfiles]# cp /backup/tpbackup_`hostname`/OSfiles/host_bkp/etc_resolv.conf /etc/resolv.conf
+cp: cannot stat ‘/backup/tpbackup_lithoam/OSfiles/host_bkp/etc_resolv.conf’: No such file or directory
+[root@localhost OSfiles]# systemctl enable ntpd
+Created symlink from /etc/systemd/system/multi-user.target.wants/ntpd.service to /usr/lib/systemd/system/ntpd.service.
+[root@localhost OSfiles]# systemctl start ntpd
+[root@localhost OSfiles]# systemctl status ntpd
+● ntpd.service - Network Time Service
+   Loaded: loaded (/usr/lib/systemd/system/ntpd.service; enabled; vendor preset: disabled)
+   Active: active (running) since Tue 2019-10-15 16:05:01 CEST; 7s ago
+  Process: 43563 ExecStart=/usr/sbin/ntpd -u ntp:ntp $OPTIONS (code=exited, status=0/SUCCESS)
+ Main PID: 43564 (ntpd)
+   CGroup: /system.slice/ntpd.service
+           └─43564 /usr/sbin/ntpd -u ntp:ntp -g
+
+Oct 15 16:05:01 lithoam ntpd[43564]: Listen normally on 2 lo 127.0.0.1 UDP 123
+Oct 15 16:05:01 lithoam ntpd[43564]: Listen normally on 3 eth0 10.183.141.46 UDP 123
+Oct 15 16:05:01 lithoam ntpd[43564]: Listen normally on 4 lo ::1 UDP 123
+Oct 15 16:05:01 lithoam ntpd[43564]: Listen normally on 5 eth0 fe80::250:56ff:fe9e:ff10 UDP 123
+Oct 15 16:05:01 lithoam ntpd[43564]: Listening on routing socket on fd #22 for interface updates
+Oct 15 16:05:01 lithoam ntpd[43564]: 0.0.0.0 c016 06 restart
+Oct 15 16:05:01 lithoam ntpd[43564]: 0.0.0.0 c012 02 freq_set kernel 0.000 PPM
+Oct 15 16:05:01 lithoam ntpd[43564]: 0.0.0.0 c011 01 freq_not_set
+Oct 15 16:05:08 lithoam ntpd[43564]: 0.0.0.0 c61c 0c clock_step +0.496187 s
+Oct 15 16:05:09 lithoam ntpd[43564]: 0.0.0.0 c614 04 freq_mode
+[root@localhost OSfiles]#
+[root@localhost OSfiles]#
+[root@localhost OSfiles]# cp /backup/tpbackup_`hostname`/OSfiles/tz.sh /etc/profile.d/tz.sh
+[root@localhost OSfiles]# cat /etc/profile.d/tz.sh
+export TZ=Europe/Amsterdam
+[root@localhost OSfiles]# reboot
+Connection to 10.183.141.46 closed by remote host.
+Connection to 10.183.141.46 closed.
+
+[root@lithoam ~]# echo $TZ
+Europe/Amsterdam
+[root@lithoam ~]# cat /backup/tpbackup_`hostname`/OSfiles/sysctl.conf >> /etc/sysctl.d/99-sysctl.conf
+[root@lithoam ~]#
+
+[root@lithoam ~]# vi /etc/sysctl.d/99-sysctl.conf
+[root@lithoam ~]# sysctl -p /etc/sysctl.d/99-sysctl.conf
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.ip_forward = 0
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.default.accept_source_route = 0
+kernel.sysrq = 0
+kernel.core_uses_pid = 1
+kernel.core_pattern = |/usr/local/bin/gzip.sh /var/TKLC/core/core.%e.%p.gz
+net.ipv4.tcp_syncookies = 1
+sysctl: cannot stat /proc/sys/net/bridge/bridge-nf-call-ip6tables: No such file or directory
+sysctl: cannot stat /proc/sys/net/bridge/bridge-nf-call-iptables: No such file or directory
+sysctl: cannot stat /proc/sys/net/bridge/bridge-nf-call-arptables: No such file or directory
+kernel.msgmnb = 65536
+kernel.msgmax = 65536
+kernel.shmmax = 68719476736
+kernel.shmall = 4294967296
+net.sctp.hb_interval = 1000
+net.core.rmem_max = 8388608
+net.core.wmem_max = 8388608
+net.core.rmem_default = 1310710
+net.core.wmem_default = 1310710
+[root@lithoam ~]# ls -ltra | grep -i .ssh
+[root@lithoam ~]# mkdir ~/.ssh
+[root@lithoam ~]#
+[root@lithoam ~]# ls -ltra | grep -i .ssh
+drwxr-xr-x   2 root root   4096 Oct 15 16:17 .ssh
+[root@lithoam ~]# cp /backup/tpbackup_`hostname`/OSfiles/root_dot_ssh/* ~/.ssh/
+[root@lithoam ~]#
+[root@lithoam ~]# ls -ltra | grep -i .ssh
+drwxr-xr-x   2 root root   4096 Oct 15 16:17 .ssh
+[root@lithoam ~]# chmod 600 ~/.ssh/authorized_keys ~/.ssh/known_hosts
+chmod: cannot access ‘/root/.ssh/authorized_keys’: No such file or directory
+[root@lithoam ~]#  chmod 600 ~/.ssh/
+[root@lithoam ~]#
+[root@lithoam ~]# chmod 0640 /etc/ssh/*_key
+[root@lithoam ~]# chown root:ssh_keys /etc/ssh/*_key
+[root@lithoam ~]# cp /backup/tpbackup_`hostname`/OSfiles/etc_logrotate/logrotate.conf /etc/logrotate.conf
+cp: overwrite ‘/etc/logrotate.conf’? y
+[root@lithoam ~]# cat /backup/tpbackup_`hostname`/OSfiles/non_textpass_passwd.mig >> /etc/passwd
+[root@lithoam ~]# cat /backup/tpbackup_`hostname`/OSfiles/non_textpass_group.mig >> /etc/group
+[root@lithoam ~]# cat /backup/tpbackup_`hostname`/OSfiles/non_textpass_shadow.mig >> /etc/shadow
+[root@lithoam ~]#
+[root@lithoam ~]# cp /backup/tpbackup_`hostname`/OSfiles/iptables_bkp/iptables /etc/sysconfig/iptables
+cp: cannot stat ‘/backup/tpbackup_lithoam/OSfiles/iptables_bkp/iptables’: No such file or directory
+[root@lithoam ~]# cp /backup/tpbackup_`hostname`/OSfiles/ip6tables_bkp/ip6tables /etc/sysconfig/ip6tables
+cp: cannot stat ‘/backup/tpbackup_lithoam/OSfiles/ip6tables_bkp/ip6tables’: No such file or directory
+[root@lithoam ~]# cp /backup/tpbackup_`hostname`/OSfiles/crontab /etc
+cp: overwrite ‘/etc/crontab’? y
+[root@lithoam ~]#
+[root@lithoam ~]# cp -r /backup/tpbackup_`hostname`/OSfiles/cron.hourly /etc
+cp: overwrite ‘/etc/cron.hourly/0anacron’? y
+[root@lithoam ~]# cp -r /backup/tpbackup_`hostname`/OSfiles/cron.daily /etc
+cp: overwrite ‘/etc/cron.daily/logrotate’? y
+cp: overwrite ‘/etc/cron.daily/prelink’? y
+[root@lithoam ~]# cp -r /backup/tpbackup_`hostname`/OSfiles/cron.weekly /etc
+[root@lithoam ~]#
+[root@lithoam ~]# cp -r /backup/tpbackup_`hostname`/OSfiles/cron.monthly /etc
+[root@lithoam ~]# cp -r /backup/tpbackup_`hostname`/OSfiles/cron /var/spool
+[root@lithoam ~]#
+[root@lithoam ~]#
+[root@lithoam ~]# mkdir -p /mnt/iso
+[root@lithoam ~]# cd --
+[root@lithoam ~]# ls -rtl
+total 515044
+-rw-r--r--  1 root root 526712832 Oct 15 10:01 NMM-SW-17.9.0-179.1.0_RHEL7.iso
+-rw-r--r--. 1 root root    149833 Oct 15 14:26 kickstart-stage1.log
+-rw-------. 1 root root      5568 Oct 15 14:26 original-ks.cfg
+-rw-------. 1 root root      7046 Oct 15 14:26 anaconda-ks.cfg
+[root@lithoam ~]# mount -t udf NMM-SW-17.9.0-179.1.0_RHEL7.iso /mnt/iso -o loop
+mount: /dev/loop0 is write-protected, mounting read-only
+[root@lithoam ~]# ls /mnt/iso
+md5sums.xml  MIBS  SW
+[root@lithoam ~]#
+[root@lithoam ~]# cp -r /mnt/iso/SW /var/Packages/
+[root@lithoam ~]# umount /mnt/iso
+[root@lithoam ~]# yum-config-manager --enable lithium-SW-repo-Local
+
+[root@lithoam ~]# cd /backup/tpbackup_`hostname`
+[root@lithoam tpbackup_lithoam]# pwd
+/backup/tpbackup_lithoam
+[root@lithoam tpbackup_lithoam]# ls -rtl
+total 124
+-rw-r--r--  1 root root     0 Oct 15 09:58 lithoam_
+-rw-r--r--  1 root root 36483 Oct 15 09:58 lithoam_14.8_packages_installed.txt
+-rw-r--r--  1 root root    57 Oct 15 10:25 lithoam_14.8_mysql_version.txt
+-rw-rw-r--  1  200  200   210 Oct 15 10:34 lithoam_14.8_tp_status.txt
+-rw-rw-r--  1  200  200 49223 Oct 15 10:34 lithoam_14.8_baseline.txt
+-rw-r--r--  1 root root  7360 Oct 15 11:47 other_checks.txt
+drwxr-xr-x  2 root root  4096 Oct 15 11:51 users
+drwxrwxrwx 16 root root  4096 Oct 15 11:53 OSfiles
+-rw-rw-r--  1  200  200  2455 Oct 15 12:04 MGR_Check
+drwxrwxr-x  3  200  200  4096 Oct 15 12:09 textpass
+drwxr-xr-x  3 root root  4096 Oct 15 12:17 MySQL
+[root@lithoam tpbackup_lithoam]#
+[root@lithoam tpbackup_lithoam]# su - textpass
+su: user textpass does not exist
+[root@lithoam tpbackup_lithoam]# yum install TextPassMGR
+
+[root@lithoam tpbackup_lithoam]# ls -rtl
+total 124
+-rw-r--r--  1 root     root         0 Oct 15 09:58 lithoam_
+-rw-r--r--  1 root     root     36483 Oct 15 09:58 lithoam_14.8_packages_installed.txt
+-rw-r--r--  1 root     root        57 Oct 15 10:25 lithoam_14.8_mysql_version.txt
+-rw-rw-r--  1 textpass textpass   210 Oct 15 10:34 lithoam_14.8_tp_status.txt
+-rw-rw-r--  1 textpass textpass 49223 Oct 15 10:34 lithoam_14.8_baseline.txt
+-rw-r--r--  1 root     root      7360 Oct 15 11:47 other_checks.txt
+drwxr-xr-x  2 root     root      4096 Oct 15 11:51 users
+drwxrwxrwx 16 root     root      4096 Oct 15 11:53 OSfiles
+-rw-rw-r--  1 textpass textpass  2455 Oct 15 12:04 MGR_Check
+drwxrwxr-x  3 textpass textpass  4096 Oct 15 12:09 textpass
+drwxr-xr-x  3 root     root      4096 Oct 15 12:17 MySQL
+[root@lithoam tpbackup_lithoam]# su - textpass
+Last login: Tue Oct 15 16:59:07 CEST 2019
+[textpass@lithoam ~]$ cd /backup/tpbackup_`hostname`
+[textpass@lithoam tpbackup_lithoam]$ mkdir -p /backup/tpbackup_`hostname`/OAM_backup_config
+[textpass@lithoam tpbackup_lithoam]$ tar -C OAM_backup_config/ -xvf textpass/`hostname`-14.8-backup.tar
+
+[textpass@lithoam tpbackup_lithoam]$ cd /backup/tpbackup_`hostname`/OAM_backup_config
+[textpass@lithoam OAM_backup_config]$ /usr/bin/gtar -xvf ../textpass/STV-`hostname`-14.8-backup.tar
+/usr/bin/gtar: ../textpass/STV-lithoam-14.8-backup.tar: Cannot open: No such file or directory
+/usr/bin/gtar: Error is not recoverable: exiting now
+[textpass@lithoam OAM_backup_config]$ cp /backup/tpbackup_`hostname`/OAM_backup_config/usr/TextPass/etc/*.lic /usr/TextPass/etc/
+[textpass@lithoam OAM_backup_config]$
+[textpass@lithoam OAM_backup_config]$ chown textpass:textpass /usr/TextPass/etc/*.lic
+[textpass@lithoam OAM_backup_config]$
+[textpass@lithoam OAM_backup_config]$
+[textpass@lithoam OAM_backup_config]$ ls -rtl /usr/TextPass/etc/*.lic
+-rw-r--r-- 1 textpass textpass 16098 Oct 15 17:04 /usr/TextPass/etc/TextPass_TST-82207-01.lic
+-rw-r--r-- 1 textpass textpass 14106 Oct 15 17:04 /usr/TextPass/etc/TextPass_TST-82207-01_activation.lic
+[textpass@lithoam OAM_backup_config]$ cp -r /backup/tpbackup_`hostname`/OAM_backup_config/usr/TextPass/.store/ /usr/TextPass/
+
+[textpass@lithoam OAM_backup_config]$ chown textpass:textpass /usr/TextPass/.store
+[textpass@lithoam OAM_backup_config]$ chown textpass:textpass /usr/TextPass/.store/.nvr*
+[textpass@lithoam OAM_backup_config]$
+[textpass@lithoam OAM_backup_config]$
+[textpass@lithoam OAM_backup_config]$ cp /backup/tpbackup_`hostname`/OSfiles/textpass_dot_ssh/* /usr/TextPass/.ssh
+[textpass@lithoam OAM_backup_config]$
+[textpass@lithoam OAM_backup_config]$ chown -R textpass:textpass /usr/TextPass/.ssh/*
+[textpass@lithoam OAM_backup_config]$ exit
+logout
+[root@lithoam tpbackup_lithoam]# cp /backup/tpbackup_`hostname`/OAM_backup_config/etc/my.cnf /etc/
+cp: overwrite ‘/etc/my.cnf’? y
+[root@lithoam tpbackup_lithoam]# vi /etc/my.cnf
+[root@lithoam tpbackup_lithoam]# vi /etc/my.cnf
+[root@lithoam tpbackup_lithoam]# mkdir -p /data/mysql_tmp
+[root@lithoam tpbackup_lithoam]# chmod 777 /data/mysql_tmp
+[root@lithoam tpbackup_lithoam]# vi /etc/my.cnf
+[root@lithoam tpbackup_lithoam]# chown mysql:mysql /data/mysqldata -R
+chown: cannot access ‘/data/mysqldata’: No such file or directory
+[root@lithoam tpbackup_lithoam]# chown -R mysql:mysql /data/mysqldata
+chown: cannot access ‘/data/mysqldata’: No such file or directory
+[root@lithoam tpbackup_lithoam]#
+[root@lithoam tpbackup_lithoam]#
+[root@lithoam tpbackup_lithoam]# mkdir -p /data/mysqldata
+[root@lithoam tpbackup_lithoam]#
+[root@lithoam tpbackup_lithoam]# chown -R mysql:mysql /data/mysqldata
+[root@lithoam tpbackup_lithoam]#
+[root@lithoam tpbackup_lithoam]# systemctl start mysql
+Job for mysql.service failed because the control process exited with error code. See "systemctl status mysql.service" and "journalctl -xe" for details.
+[root@lithoam tpbackup_lithoam]# systemctl status mysql
+● mysql.service - LSB: start and stop MySQL
+   Loaded: loaded (/etc/rc.d/init.d/mysql; bad; vendor preset: disabled)
+   Active: failed (Result: exit-code) since Tue 2019-10-15 17:22:04 CEST; 9s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 16697 ExecStart=/etc/rc.d/init.d/mysql start (code=exited, status=1/FAILURE)
+
+Oct 15 17:21:58 lithoam systemd[1]: Starting LSB: start and stop MySQL...
+Oct 15 17:22:04 lithoam mysql[16697]: Starting MySQL......The server quit without updating PID file (/data/mysqldata/lithoam.pid).[FAILED]
+Oct 15 17:22:04 lithoam systemd[1]: mysql.service: control process exited, code=exited status=1
+Oct 15 17:22:04 lithoam systemd[1]: Failed to start LSB: start and stop MySQL.
+Oct 15 17:22:04 lithoam systemd[1]: Unit mysql.service entered failed state.
+Oct 15 17:22:04 lithoam systemd[1]: mysql.service failed.
+[root@lithoam tpbackup_lithoam]# systemctl status mysql.service
+● mysql.service - LSB: start and stop MySQL
+   Loaded: loaded (/etc/rc.d/init.d/mysql; bad; vendor preset: disabled)
+   Active: failed (Result: exit-code) since Tue 2019-10-15 17:22:04 CEST; 50min ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 16697 ExecStart=/etc/rc.d/init.d/mysql start (code=exited, status=1/FAILURE)
+
+Oct 15 17:21:58 lithoam systemd[1]: Starting LSB: start and stop MySQL...
+Oct 15 17:22:04 lithoam mysql[16697]: Starting MySQL......The server quit without updating PID file (/data/mysqldata/lithoam.pid).[FAILED]
+Oct 15 17:22:04 lithoam systemd[1]: mysql.service: control process exited, code=exited status=1
+Oct 15 17:22:04 lithoam systemd[1]: Failed to start LSB: start and stop MySQL.
+Oct 15 17:22:04 lithoam systemd[1]: Unit mysql.service entered failed state.
+Oct 15 17:22:04 lithoam systemd[1]: mysql.service failed.
+[root@lithoam tpbackup_lithoam]#
+[root@lithoam tpbackup_lithoam]#
+[root@lithoam tpbackup_lithoam]#
+[root@lithoam tpbackup_lithoam]#
+[root@lithoam tpbackup_lithoam]# cd /var/lib/
+[root@lithoam lib]# cd mysql
+[root@lithoam mysql]# ls -rtl
+total 110732
+drwxr-xr-x 2 mysql mysql     4096 Oct 15 16:53 test
+-rw-rw---- 1 mysql mysql 50331648 Oct 15 16:53 ib_logfile1
+drwx------ 2 mysql mysql     4096 Oct 15 16:53 performance_schema
+drwx--x--x 2 mysql mysql     4096 Oct 15 16:53 mysql
+-rw-rw---- 1 mysql mysql 50331648 Oct 15 16:53 ib_logfile0
+-rw-rw---- 1 mysql mysql 12582912 Oct 15 16:53 ibdata1
+-rw-r--r-- 1 mysql mysql      124 Oct 15 16:53 RPM_UPGRADE_MARKER-LAST
+-rw-r--r-- 1 root  root       124 Oct 15 16:53 RPM_UPGRADE_HISTORY
+[root@lithoam mysql]# rm -rf ib_logfile0
+[root@lithoam mysql]# rm -rf ib_logfile1
+[root@lithoam mysql]# ls -rtl
+total 12324
+drwxr-xr-x 2 mysql mysql     4096 Oct 15 16:53 test
+drwx------ 2 mysql mysql     4096 Oct 15 16:53 performance_schema
+drwx--x--x 2 mysql mysql     4096 Oct 15 16:53 mysql
+-rw-rw---- 1 mysql mysql 12582912 Oct 15 16:53 ibdata1
+-rw-r--r-- 1 mysql mysql      124 Oct 15 16:53 RPM_UPGRADE_MARKER-LAST
+-rw-r--r-- 1 root  root       124 Oct 15 16:53 RPM_UPGRADE_HISTORY
+[root@lithoam mysql]# cd /data/mysqldata/
+[root@lithoam mysqldata]# ls -rtl
+total 863076
+-rw-rw---- 1 mysql mysql 268435456 Oct 15 17:22 ib_logfile1
+-rw-rw---- 1 mysql mysql 268435456 Oct 15 17:22 ib_logfile2
+-rw-rw---- 1 mysql mysql  77594624 Oct 15 17:22 ibdata1
+-rw-rw---- 1 mysql mysql 268435456 Oct 15 17:22 ib_logfile0
+-rw-rw---- 1 mysql mysql        56 Oct 15 17:22 auto.cnf
+-rw-rw---- 1 mysql mysql      3692 Oct 15 17:22 lithoam.err
+[root@lithoam mysqldata]# rm -rf ib_logfile*
+[root@lithoam mysqldata]# ls -rtl
+total 75864
+-rw-rw---- 1 mysql mysql 77594624 Oct 15 17:22 ibdata1
+-rw-rw---- 1 mysql mysql       56 Oct 15 17:22 auto.cnf
+-rw-rw---- 1 mysql mysql     3692 Oct 15 17:22 lithoam.err
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# systemctl stop mysql
+[root@lithoam mysqldata]# ps -ef | grep -i mysql
+root      17512  15598  0 18:14 pts/0    00:00:00 grep --color=auto -i mysql
+[root@lithoam mysqldata]# systemctl status mysql
+● mysql.service - LSB: start and stop MySQL
+   Loaded: loaded (/etc/rc.d/init.d/mysql; bad; vendor preset: disabled)
+   Active: failed (Result: exit-code) since Tue 2019-10-15 17:22:04 CEST; 52min ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 16697 ExecStart=/etc/rc.d/init.d/mysql start (code=exited, status=1/FAILURE)
+
+Oct 15 17:21:58 lithoam systemd[1]: Starting LSB: start and stop MySQL...
+Oct 15 17:22:04 lithoam mysql[16697]: Starting MySQL......The server quit without updating PID file (/data/mysqldata/lithoam.pid).[FAILED]
+Oct 15 17:22:04 lithoam systemd[1]: mysql.service: control process exited, code=exited status=1
+Oct 15 17:22:04 lithoam systemd[1]: Failed to start LSB: start and stop MySQL.
+Oct 15 17:22:04 lithoam systemd[1]: Unit mysql.service entered failed state.
+Oct 15 17:22:04 lithoam systemd[1]: mysql.service failed.
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# systemctl start mysql
+Job for mysql.service failed because the control process exited with error code. See "systemctl status mysql.service" and "journalctl -xe" for details.
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# systemctl status mysql.service
+● mysql.service - LSB: start and stop MySQL
+   Loaded: loaded (/etc/rc.d/init.d/mysql; bad; vendor preset: disabled)
+   Active: failed (Result: exit-code) since Tue 2019-10-15 18:14:14 CEST; 8s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 17520 ExecStart=/etc/rc.d/init.d/mysql start (code=exited, status=1/FAILURE)
+
+Oct 15 18:14:12 lithoam systemd[1]: Starting LSB: start and stop MySQL...
+Oct 15 18:14:14 lithoam mysql[17520]: Starting MySQL..The server quit without updating PID file (/data/mysqldata/lithoam.pid).[FAILED]
+Oct 15 18:14:14 lithoam systemd[1]: mysql.service: control process exited, code=exited status=1
+Oct 15 18:14:14 lithoam systemd[1]: Failed to start LSB: start and stop MySQL.
+Oct 15 18:14:14 lithoam systemd[1]: Unit mysql.service entered failed state.
+Oct 15 18:14:14 lithoam systemd[1]: mysql.service failed.
+
+[root@lithoam mysqldata]# ps -ef | grep mysql
+root      18337  15598  0 18:30 pts/0    00:00:00 grep --color=auto mysql
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# systemctl start mysql
+Job for mysql.service failed because the control process exited with error code. See "systemctl status mysql.service" and "journalctl -xe" for details.
+
+[root@lithoam mysqldata]# pwd
+/data/mysqldata
+[root@lithoam mysqldata]# ls -rtl
+total 863084
+-rw-rw---- 1 mysql mysql        56 Oct 15 17:22 auto.cnf
+-rw-rw---- 1 mysql mysql 268435456 Oct 15 18:30 ib_logfile1
+-rw-rw---- 1 mysql mysql 268435456 Oct 15 18:30 ib_logfile2
+-rw-rw---- 1 mysql mysql  77594624 Oct 15 18:30 ibdata1
+-rw-rw---- 1 mysql mysql 268435456 Oct 15 18:30 ib_logfile0
+-rw-rw---- 1 mysql mysql     12143 Oct 15 18:30 lithoam.err
+[root@lithoam mysqldata]# rm -rf ib_logfile1 ib_logfile2 ib_logfile0 ibdata1
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# reboot
+Connection to 10.183.141.46 closed by remote host.
+Connection to 10.183.141.46 closed.
+
+[root@lithoam mysqldata]# mkdir -p /data/mysql_tmp
+[root@lithoam mysqldata]# chmod 777 /data/mysql_tmp
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# vi /etc/my.cnf
+[root@lithoam mysql]#
+[root@lithoam mysql]# mysql_install_db
+Installing MySQL system tables...2019-10-15 18:42:21 0 [Warning] 'THREAD_CONCURRENCY' is deprecated and will be removed in a future release.
+2019-10-15 18:42:21 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).
+2019-10-15 18:42:21 0 [Note] Ignoring --secure-file-priv value as server is running with --bootstrap.
+2019-10-15 18:42:21 0 [Note] /usr/local/sbin/mysqld (mysqld 5.6.44-enterprise-gpl-pro) starting as process 8680 ...
+2019-10-15 18:42:21 8680 [Warning] You need to use --log-bin to make --binlog-format work.
+2019-10-15 18:42:21 7f3e2f2b0740 InnoDB: Warning: Using innodb_additional_mem_pool_size is DEPRECATED. This option may be removed in future releases, together with the option innodb_use_sys_malloc and with the InnoDB's internal memory allocator.
+2019-10-15 18:42:21 8680 [Note] InnoDB: Using atomics to ref count buffer pool pages
+2019-10-15 18:42:21 8680 [Note] InnoDB: The InnoDB memory heap is disabled
+2019-10-15 18:42:21 8680 [Note] InnoDB: Mutexes and rw_locks use GCC atomic builtins
+2019-10-15 18:42:21 8680 [Note] InnoDB: Memory barrier is not used
+2019-10-15 18:42:21 8680 [Note] InnoDB: Compressed tables use zlib 1.2.11
+2019-10-15 18:42:21 8680 [Note] InnoDB: Using Linux native AIO
+2019-10-15 18:42:21 8680 [Note] InnoDB: Using CPU crc32 instructions
+2019-10-15 18:42:21 8680 [Note] InnoDB: Initializing buffer pool, size = 2.0G
+2019-10-15 18:42:22 8680 [Note] InnoDB: Completed initialization of buffer pool
+2019-10-15 18:42:22 8680 [Note] InnoDB: Highest supported file format is Barracuda.
+2019-10-15 18:42:22 8680 [Note] InnoDB: Log scan progressed past the checkpoint lsn 49463
+2019-10-15 18:42:22 8680 [Note] InnoDB: Database was not shutdown normally!
+2019-10-15 18:42:22 8680 [Note] InnoDB: Starting crash recovery.
+2019-10-15 18:42:22 8680 [Note] InnoDB: Reading tablespace information from the .ibd files...
+2019-10-15 18:42:22 8680 [Note] InnoDB: Restoring possible half-written data pages
+2019-10-15 18:42:22 8680 [Note] InnoDB: from the doublewrite buffer...
+InnoDB: Doing recovery: scanned up to log sequence number 1600566
+2019-10-15 18:42:22 8680 [Note] InnoDB: Starting an apply batch of log records to the database...
+InnoDB: Progress in percent: 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99
+InnoDB: Apply batch completed
+2019-10-15 18:42:22 8680 [Note] InnoDB: 128 rollback segment(s) are active.
+2019-10-15 18:42:22 8680 [Note] InnoDB: Waiting for purge to start
+2019-10-15 18:42:22 8680 [Note] InnoDB: 5.6.44 started; log sequence number 1600566
+2019-10-15 18:42:23 8680 [Note] Binlog end
+2019-10-15 18:42:23 8680 [Note] InnoDB: FTS optimize thread exiting.
+2019-10-15 18:42:23 8680 [Note] InnoDB: Starting shutdown...
+2019-10-15 18:42:24 8680 [Note] InnoDB: Shutdown completed; log sequence number 1625826
+OK
+
+Filling help tables...2019-10-15 18:42:24 0 [Warning] 'THREAD_CONCURRENCY' is deprecated and will be removed in a future release.
+2019-10-15 18:42:24 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).
+2019-10-15 18:42:24 0 [Note] Ignoring --secure-file-priv value as server is running with --bootstrap.
+2019-10-15 18:42:24 0 [Note] /usr/local/sbin/mysqld (mysqld 5.6.44-enterprise-gpl-pro) starting as process 8704 ...
+2019-10-15 18:42:24 8704 [Warning] You need to use --log-bin to make --binlog-format work.
+2019-10-15 18:42:24 7f5e9b7b6740 InnoDB: Warning: Using innodb_additional_mem_pool_size is DEPRECATED. This option may be removed in future releases, together with the option innodb_use_sys_malloc and with the InnoDB's internal memory allocator.
+2019-10-15 18:42:24 8704 [Note] InnoDB: Using atomics to ref count buffer pool pages
+2019-10-15 18:42:24 8704 [Note] InnoDB: The InnoDB memory heap is disabled
+2019-10-15 18:42:24 8704 [Note] InnoDB: Mutexes and rw_locks use GCC atomic builtins
+2019-10-15 18:42:24 8704 [Note] InnoDB: Memory barrier is not used
+2019-10-15 18:42:24 8704 [Note] InnoDB: Compressed tables use zlib 1.2.11
+2019-10-15 18:42:24 8704 [Note] InnoDB: Using Linux native AIO
+2019-10-15 18:42:24 8704 [Note] InnoDB: Using CPU crc32 instructions
+2019-10-15 18:42:24 8704 [Note] InnoDB: Initializing buffer pool, size = 2.0G
+2019-10-15 18:42:24 8704 [Note] InnoDB: Completed initialization of buffer pool
+2019-10-15 18:42:24 8704 [Note] InnoDB: Highest supported file format is Barracuda.
+2019-10-15 18:42:25 8704 [Note] InnoDB: 128 rollback segment(s) are active.
+2019-10-15 18:42:25 8704 [Note] InnoDB: Waiting for purge to start
+2019-10-15 18:42:25 8704 [Note] InnoDB: 5.6.44 started; log sequence number 1625826
+2019-10-15 18:42:25 8704 [Note] Binlog end
+2019-10-15 18:42:25 8704 [Note] InnoDB: FTS optimize thread exiting.
+2019-10-15 18:42:25 8704 [Note] InnoDB: Starting shutdown...
+2019-10-15 18:42:26 8704 [Note] InnoDB: Shutdown completed; log sequence number 1625836
+OK
+
+To start mysqld at boot time you have to copy
+support-files/mysql.server to the right place for your system
+
+PLEASE REMEMBER TO SET A PASSWORD FOR THE MySQL root USER !
+To do so, start the server, then issue the following commands:
+
+  /usr/local/bin/mysqladmin -u root password 'new-password'
+  /usr/local/bin/mysqladmin -u root -h lithoam password 'new-password'
+
+Alternatively you can run:
+
+  /usr/local/bin/mysql_secure_installation
+
+which will also give you the option of removing the test
+databases and anonymous user created by default.  This is
+strongly recommended for production servers.
+
+See the manual for more instructions.
+
+You can start the MySQL daemon with:
+
+  cd /usr/local ; /usr/local/bin/mysqld_safe &
+
+You can test the MySQL daemon with mysql-test-run.pl
+
+  cd mysql-test ; perl mysql-test-run.pl
+
+Please report any problems at http://bugs.mysql.com/
+
+The latest information about MySQL is available on the web at
+
+  http://www.mysql.com
+
+Support MySQL by buying support/licenses at http://shop.mysql.com
+
+Note: new default config file not created.
+Please make sure your config file is current
+
+WARNING: Default config file /etc/my.cnf exists on the system
+This file will be read by default by the MySQL server
+If you do not want to use this, either remove it, or use the
+--defaults-file argument to mysqld_safe when starting the server
+
+[root@lithoam mysql]#
+[root@lithoam mysql]#
+[root@lithoam mysql]#
+[root@lithoam mysql]# chown -R mysql /data/mysqldata
+[root@lithoam mysql]# chgrp -R mysql /data/mysqldata
+[root@lithoam mysql]#
+[root@lithoam mysql]#
+[root@lithoam mysql]# systemctl start mysql
+[root@lithoam mysql]# systemctl status mysql
+● mysql.service - LSB: start and stop MySQL
+   Loaded: loaded (/etc/rc.d/init.d/mysql; bad; vendor preset: disabled)
+   Active: active (running) since Tue 2019-10-15 18:47:07 CEST; 9s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 8736 ExecStart=/etc/rc.d/init.d/mysql start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/mysql.service
+           ├─8744 /bin/sh /usr/local/bin/mysqld_safe --datadir=/data/mysqldata --pid-file=/data/mysqldata/lithoam.pid --secure-file-priv=
+           └─9444 /usr/local/sbin/mysqld --basedir=/usr/local --datadir=/data/mysqldata --plugin-dir=/usr/local/lib64/mysql/plugin --user=mysql ...
+
+Oct 15 18:47:05 lithoam systemd[1]: Starting LSB: start and stop MySQL...
+Oct 15 18:47:07 lithoam mysql[8736]: Starting MySQL..[  OK  ]
+Oct 15 18:47:07 lithoam systemd[1]: Started LSB: start and stop MySQL.
+[root@lithoam mysql]#
+[root@lithoam mysql]#
+[root@lithoam mysql]#
+[root@lithoam mysql]# mysql -uroot mysql
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 1
+Server version: 5.6.44-enterprise-gpl-pro MySQL Community Server (GPL)
+
+Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> SET PASSWORD FOR 'root'@'localhost'=PASSWORD('lokal$');
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> exit
+Bye
+[root@lithoam mysql]# mysql_config_editor set --login-path=mysql_root --host=localhost --user=root --skip-warn --password
+Enter password:
+
+[root@lithoam mysql]#
+
+[root@lithoam mysqldata]# systemctl start mysql
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# systemctl status mysql
+● mysql.service - LSB: start and stop MySQL
+   Loaded: loaded (/etc/rc.d/init.d/mysql; bad; vendor preset: disabled)
+   Active: active (running) since Tue 2019-10-15 19:05:39 CEST; 3s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 9509 ExecStop=/etc/rc.d/init.d/mysql stop (code=exited, status=0/SUCCESS)
+  Process: 11071 ExecStart=/etc/rc.d/init.d/mysql start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/mysql.service
+           ├─11079 /bin/sh /usr/local/bin/mysqld_safe --datadir=/data/mysqldata --pid-file=/data/mysqldata/lithoam.pid --secure-file-priv=
+           └─11779 /usr/local/sbin/mysqld --basedir=/usr/local --datadir=/data/mysqldata --plugin-dir=/usr/local/lib64/mysql/plugin --user=mysql...
+
+Oct 15 19:05:37 lithoam systemd[1]: Starting LSB: start and stop MySQL...
+Oct 15 19:05:39 lithoam mysql[11071]: Starting MySQL..[  OK  ]
+Oct 15 19:05:39 lithoam systemd[1]: Started LSB: start and stop MySQL.
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]#
+
+[root@lithoam mysqldata]# mysql_config_editor set --login-path=textpass --host=localhost --user=textpass --skip_warn --password
+Enter password:
+[root@lithoam mysqldata]# mysql_config_editor set --login-path=mysql_root --host=localhost --user=root --skip_warn  --password
+Enter password:
+[root@lithoam mysqldata]# mysql_config_editor print --all
+[cci_local]
+user = MGRuser
+password = *****
+host = localhost
+[textpass]
+user = textpass
+password = *****
+host = localhost
+[mysql_root]
+user = root
+password = *****
+host = localhost
+[root@lithoam mysqldata]# mysql_upgrade --login-path=mysql_root
+Looking for 'mysql' as: mysql
+Looking for 'mysqlcheck' as: mysqlcheck
+Running 'mysqlcheck' with connection arguments: '--port=3306' '--socket=/var/lib/mysql/mysql.sock' '--host=localhost'
+Warning: Using a password on the command line interface can be insecure.
+Running 'mysqlcheck' with connection arguments: '--port=3306' '--socket=/var/lib/mysql/mysql.sock' '--host=localhost'
+Warning: Using a password on the command line interface can be insecure.
+mysql.columns_priv                                 OK
+mysql.db                                           OK
+mysql.event                                        OK
+mysql.func                                         OK
+mysql.general_log                                  OK
+mysql.help_category                                OK
+mysql.help_keyword                                 OK
+mysql.help_relation                                OK
+mysql.help_topic                                   OK
+mysql.innodb_index_stats                           OK
+mysql.innodb_table_stats                           OK
+mysql.ndb_binlog_index                             OK
+mysql.plugin                                       OK
+mysql.proc                                         OK
+mysql.procs_priv                                   OK
+mysql.proxies_priv                                 OK
+mysql.servers                                      OK
+mysql.slave_master_info                            OK
+mysql.slave_relay_log_info                         OK
+mysql.slave_worker_info                            OK
+mysql.slow_log                                     OK
+mysql.tables_priv                                  OK
+mysql.time_zone                                    OK
+mysql.time_zone_leap_second                        OK
+mysql.time_zone_name                               OK
+mysql.time_zone_transition                         OK
+mysql.time_zone_transition_type                    OK
+mysql.user                                         OK
+Running 'mysql_fix_privilege_tables'...
+Warning: Using a password on the command line interface can be insecure.
+Running 'mysqlcheck' with connection arguments: '--port=3306' '--socket=/var/lib/mysql/mysql.sock' '--host=localhost'
+Warning: Using a password on the command line interface can be insecure.
+Running 'mysqlcheck' with connection arguments: '--port=3306' '--socket=/var/lib/mysql/mysql.sock' '--host=localhost'
+Warning: Using a password on the command line interface can be insecure.
+OK
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# systemctl restart mysql
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# systemctl status mysql
+● mysql.service - LSB: start and stop MySQL
+   Loaded: loaded (/etc/rc.d/init.d/mysql; bad; vendor preset: disabled)
+   Active: active (running) since Tue 2019-10-15 19:08:13 CEST; 7s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 11840 ExecStop=/etc/rc.d/init.d/mysql stop (code=exited, status=0/SUCCESS)
+  Process: 11861 ExecStart=/etc/rc.d/init.d/mysql start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/mysql.service
+           ├─11869 /bin/sh /usr/local/bin/mysqld_safe --datadir=/data/mysqldata --pid-file=/data/mysqldata/lithoam.pid --secure-file-priv=
+           └─12569 /usr/local/sbin/mysqld --basedir=/usr/local --datadir=/data/mysqldata --plugin-dir=/usr/local/lib64/mysql/plugin --user=mysql...
+
+Oct 15 19:08:10 lithoam systemd[1]: Starting LSB: start and stop MySQL...
+Oct 15 19:08:13 lithoam mysql[11861]: Starting MySQL..[  OK  ]
+Oct 15 19:08:13 lithoam systemd[1]: Started LSB: start and stop MySQL.
+
+[root@lithoam mysqldata]# yum install TextPassMySQL-Cluster-management
+
+[root@lithoam mysqldata]# yum install TextPassMySQL-Cluster-tools
+
+[root@lithoam mysqldata]# cp /backup/tpbackup_`hostname`/OAM_backup_config/var/lib/mysql-cluster/config.ini /var/lib/mysql-cluster/config.ini
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# ls -rtl /var/lib/mysql-cluster/
+total 8
+-rwxr-xr-x 1 root root 3145 Jul  2 13:52 default_config.ini
+-rwxr-xr-x 1 root root 2562 Oct 15 19:10 config.ini
+[root@lithoam mysqldata]# systemctl enable ndb_mgmd
+ndb_mgmd.service is not a native service, redirecting to /sbin/chkconfig.
+Executing /sbin/chkconfig ndb_mgmd on
+[root@lithoam mysqldata]# /sbin/chkconfig ndb_mgmd on
+[root@lithoam mysqldata]# systemctl start ndb_mgmd
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# systemctl status ndb_mgmd
+● ndb_mgmd.service - SYSV: Starts, stops and restarts the MySQL Cluster management node daemon.
+   Loaded: loaded (/etc/rc.d/init.d/ndb_mgmd; bad; vendor preset: disabled)
+   Active: active (running) since Tue 2019-10-15 19:10:55 CEST; 12s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 12658 ExecStart=/etc/rc.d/init.d/ndb_mgmd start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/ndb_mgmd.service
+           └─12672 /usr/local/sbin/ndb_mgmd -f /var/lib/mysql-cluster/config.ini --configdir=/var/lib/mysql-cluster --reload /dev/null
+
+Oct 15 19:10:54 lithoam systemd[1]: Starting SYSV: Starts, stops and restarts the MySQL Cluster management node daemon....
+Oct 15 19:10:55 lithoam ndb_mgmd[12658]: MySQL Cluster Management Server mysql-5.6.44 ndb-7.4.24
+Oct 15 19:10:55 lithoam ndb_mgmd[12658]: 2019-10-15 19:10:55 [MgmtSrvr] WARNING  -- at line 52: [DB] DiskCheckpointSpeedInRestart is dep... instead
+Oct 15 19:10:55 lithoam ndb_mgmd[12658]: 2019-10-15 19:10:55 [MgmtSrvr] WARNING  -- at line 53: [DB] DiskCheckpointSpeed is deprecated, ... instead
+Oct 15 19:10:55 lithoam ndb_mgmd[12658]: 2019-10-15 19:10:55 [MgmtSrvr] WARNING  -- at line 72: [DB] BackupMemory is deprecated, use Tot... instead
+Oct 15 19:10:55 lithoam ndb_mgmd[12658]: 2019-10-15 19:10:55 [MgmtSrvr] WARNING  -- at line 52: [DB] DiskCheckpointSpeedInRestart is dep... instead
+Oct 15 19:10:55 lithoam ndb_mgmd[12658]: 2019-10-15 19:10:55 [MgmtSrvr] WARNING  -- at line 53: [DB] DiskCheckpointSpeed is deprecated, ... instead
+Oct 15 19:10:55 lithoam ndb_mgmd[12658]: 2019-10-15 19:10:55 [MgmtSrvr] WARNING  -- at line 72: [DB] BackupMemory is deprecated, use Tot... instead
+Oct 15 19:10:55 lithoam systemd[1]: Started SYSV: Starts, stops and restarts the MySQL Cluster management node daemon..
+Oct 15 19:10:55 lithoam ndb_mgmd[12658]: Starting /usr/local/sbin/ndb_mgmd (ndb-7.4.24) succeeded.
+Hint: Some lines were ellipsized, use -l to show in full.
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# ndb_mgm -e "SHOW"
+Connected to Management Server at: localhost:1186
+Cluster Configuration
+---------------------
+[ndbd(NDB)]     2 node(s)
+id=2 (not connected, accepting connect from 10.183.141.56)
+id=3 (not connected, accepting connect from 10.183.141.86)
+
+[ndb_mgmd(MGM)] 1 node(s)
+id=1    @10.183.141.46  (mysql-5.6.44 ndb-7.4.24)
+
+[mysqld(API)]   17 node(s)
+id=4 (not connected, accepting connect from 10.183.141.56)
+id=5 (not connected, accepting connect from 10.183.141.56)
+id=6 (not connected, accepting connect from 10.183.141.86)
+id=7 (not connected, accepting connect from 10.183.141.86)
+id=8 (not connected, accepting connect from 10.183.141.46)
+id=9 (not connected, accepting connect from 10.183.141.56)
+id=10 (not connected, accepting connect from 10.183.141.56)
+id=11 (not connected, accepting connect from 10.183.141.56)
+id=12 (not connected, accepting connect from 10.183.141.56)
+id=13 (not connected, accepting connect from 10.183.141.56)
+id=14 (not connected, accepting connect from 10.183.141.56)
+id=15 (not connected, accepting connect from 10.183.141.86)
+id=16 (not connected, accepting connect from 10.183.141.86)
+id=17 (not connected, accepting connect from 10.183.141.86)
+id=18 (not connected, accepting connect from 10.183.141.86)
+id=19 (not connected, accepting connect from 10.183.141.86)
+id=20 (not connected, accepting connect from 10.183.141.86)
+
+[root@lithoam mysqldata]#
+[root@lithoam mysqldata]# cp /backup/tpbackup_`hostname`/OAM_backup_config/var/TextPass/MGR/distribution_lists/* /var/TextPass/MGR/distribution_lists/
+cp: cannot stat ‘/backup/tpbackup_lithoam/OAM_backup_config/var/TextPass/MGR/distribution_lists/*’: No such file or directory
+[root@lithoam mysqldata]# cd /backup/tpbackup_`hostname`/OAM_backup_config
+[root@lithoam OAM_backup_config]#
+[root@lithoam OAM_backup_config]# cp  /var/TextPass/MGR/distribution_lists/ /var/TextPass/MGR/distribution_lists/
+cp: omitting directory ‘/var/TextPass/MGR/distribution_lists/’
+
+[root@lithoam OAM_backup_config]#
+[root@lithoam OAM_backup_config]# chown textpass:textpass /var/TextPass/MGR/distribution_lists/
+[root@lithoam OAM_backup_config]# ls -rtl /var/TextPass/MGR/distribution_lists/
+total 0
+[root@lithoam OAM_backup_config]# su - textpass
+Last login: Tue Oct 15 19:15:01 CEST 2019
+[textpass@lithoam ~]$ cp -r /backup/tpbackup_lithoam/OAM_backup_config/usr/TextPass/etc/ /usr/TextPass/etc/
+[textpass@lithoam ~]$
+[textpass@lithoam ~]$
+[textpass@lithoam ~]$ cp /backup/tpbackup_`hostname`/OAM_backup_config/usr/TextPass/etc/role /usr/TextPass/etc/
+[textpass@lithoam ~]$ cp /backup/tpbackup_`hostname`/OAM_backup_config/usr/TextPass/etc/`hostname`_config.txt /usr/TextPass/etc/
+[textpass@lithoam ~]$
+[textpass@lithoam ~]$ cp /backup/tpbackup_`hostname`/OAM_backup_config/usr/TextPass/etc/common_config.txt /usr/TextPass/etc/
+[textpass@lithoam ~]$
+[textpass@lithoam ~]$
+[textpass@lithoam ~]$ chown textpass:textpass /usr/TextPass/etc/`hostname`_config.txt
+[textpass@lithoam ~]$ chown textpass:textpass /usr/TextPass/etc/common_config*.txt
+[textpass@lithoam ~]$
+[textpass@lithoam ~]$ cp -r /backup/tpbackup_lithoam/OAM_backup_config/opt/TextPass/MGR/R04.09.08.06/images/customer_logo.gif /opt/TextPass/MGR/R04.13.09.02/images/
+[textpass@lithoam ~]$
+[textpass@lithoam ~]$
+[textpass@lithoam ~]$
+[textpass@lithoam ~]$ cp -r /backup/tpbackup_`hostname`/OAM_backup_config/var/TextPass/STV/* /var/TextPass/STV/
+cp: cannot stat ‘/backup/tpbackup_lithoam/OAM_backup_config/var/TextPass/STV/*’: No such file or directory
+[textpass@lithoam ~]$
+[textpass@lithoam ~]$ ls -rtl /var/TextPass/STV/
+total 20
+drwxr-xr-x 3 root     root     4096 Oct 15 16:59 import
+drwxr-x--- 5 textpass textpass 4096 Oct 15 16:59 export
+drwxr-xr-x 5 root     root     4096 Oct 15 16:59 collector
+drwxr-xr-x 4 root     root     4096 Oct 15 16:59 poll_config_sync
+drwxr-x--- 2 textpass textpass 4096 Oct 15 19:15 pid
+
+[root@lithoam OAM_backup_config]# chown textpass:textpass /var/TextPass/STV -R
+[root@lithoam OAM_backup_config]# ls -rtl /var/TextPass/STV/
+total 20
+drwxr-xr-x 3 textpass textpass 4096 Oct 15 16:59 import
+drwxr-x--- 5 textpass textpass 4096 Oct 15 16:59 export
+drwxr-xr-x 5 textpass textpass 4096 Oct 15 16:59 collector
+drwxr-xr-x 4 textpass textpass 4096 Oct 15 16:59 poll_config_sync
+drwxr-x--- 2 textpass textpass 4096 Oct 15 19:15 pid
+[root@lithoam OAM_backup_config]# cp -r /backup/tpbackup_`hostname`/OAM_backup_config/var/TextPass/MGR/stv_export/* /var/TextPass/MGR/stv_export/
+[root@lithoam OAM_backup_config]# chown textpass:textpass /var/TextPass/MGR/stv_export/ -R
+[root@lithoam OAM_backup_config]#
+[root@lithoam OAM_backup_config]#
+[root@lithoam OAM_backup_config]# usr/TextPass/bin/tp_install_mgr
+-bash: usr/TextPass/bin/tp_install_mgr: No such file or directory
+You have new mail in /var/spool/mail/root
+[root@lithoam OAM_backup_config]# /usr/TextPass/bin/tp_install_mgr
+DBI connect('database=mysql;host=localhost;port=3306;mysql_read_default_file=/etc/my.cnf','MGRuser',...) failed: Access denied for user 'MGRuser'@'localhost' (using password: YES) at /usr/TextPass/lib//MGR/FTA/Db.pm line 57.
+Can't call method "func" on an undefined value at /usr/TextPass/lib//MGR/FTA/Db.pm line 58, <DATA> line 747.
+BEGIN failed--compilation aborted at /usr/TextPass/lib//MGR/FTA/Db.pm line 120, <DATA> line 747.
+Compilation failed in require at /usr/TextPass/lib//MGR/FTA/Server.pm line 23, <DATA> line 747.
+BEGIN failed--compilation aborted at /usr/TextPass/lib//MGR/FTA/Server.pm line 23, <DATA> line 747.
+Compilation failed in require at /usr/TextPass/lib//MGR/Data/StatviewExport.pm line 30, <DATA> line 747.
+BEGIN failed--compilation aborted at /usr/TextPass/lib//MGR/Data/StatviewExport.pm line 30, <DATA> line 747.
+Compilation failed in require at /usr/TextPass/lib//MGR/www_main.pm line 75, <DATA> line 747.
+BEGIN failed--compilation aborted at /usr/TextPass/lib//MGR/www_main.pm line 75, <DATA> line 747.
+Compilation failed in require at /usr/TextPass/lib//MGR/Data/Mgr.pm line 41, <DATA> line 747.
+BEGIN failed--compilation aborted at /usr/TextPass/lib//MGR/Data/Mgr.pm line 41, <DATA> line 747.
+Compilation failed in require at /usr/TextPass/lib//MGR/Install.pm line 28, <DATA> line 747.
+BEGIN failed--compilation aborted at /usr/TextPass/lib//MGR/Install.pm line 28, <DATA> line 747.
+Compilation failed in require at /usr/TextPass/bin/tp_install_mgr line 34, <DATA> line 747.
+BEGIN failed--compilation aborted at /usr/TextPass/bin/tp_install_mgr line 34, <DATA> line 747.
+[root@lithoam OAM_backup_config]# chmod 777 /data
+[root@lithoam OAM_backup_config]# mkdir /data/dbamsstore
+[root@lithoam OAM_backup_config]# chown textpass:textpass /data/dbamsstore
+[root@lithoam OAM_backup_config]# ln -s /data/dbamsstore /dbamsstore
+[root@lithoam OAM_backup_config]# mkdir /data/dbamslog
+[root@lithoam OAM_backup_config]# chown textpass:textpass /data/dbamslog
+[root@lithoam OAM_backup_config]# ln -s /data/dbamslog /dbamslog
+[root@lithoam OAM_backup_config]# mkdir /dbamsstore/master
+[root@lithoam OAM_backup_config]# chown textpass:textpass /dbamsstore/master
+[root@lithoam OAM_backup_config]#
+[root@lithoam OAM_backup_config]# mkdir /dbamsstore/replica
+[root@lithoam OAM_backup_config]# chown textpass:textpass /dbamsstore/replica
+[root@lithoam OAM_backup_config]# mkdir /dbamslog/master
+[root@lithoam OAM_backup_config]# chown textpass:textpass /dbamslog/master
+[root@lithoam OAM_backup_config]# mkdir /dbamslog/replica
+[root@lithoam OAM_backup_config]# chown textpass:textpass /dbamslog/replica
+[root@lithoam OAM_backup_config]# ls -alt /dbamsstore/
+total 16
+drwxr-xr-x 4 textpass textpass 4096 Oct 16 08:41 .
+drwxr-xr-x 2 textpass textpass 4096 Oct 16 08:41 replica
+drwxr-xr-x 2 textpass textpass 4096 Oct 16 08:41 master
+drwxrwxrwx 6 root     root     4096 Oct 16 08:40 ..
+[root@lithoam OAM_backup_config]# ls -alt /dbamslog/
+total 16
+drwxr-xr-x 4 textpass textpass 4096 Oct 16 08:41 .
+drwxr-xr-x 2 textpass textpass 4096 Oct 16 08:41 replica
+drwxr-xr-x 2 textpass textpass 4096 Oct 16 08:41 master
+drwxrwxrwx 6 root     root     4096 Oct 16 08:40 ..
+[root@lithoam OAM_backup_config]# mysql --login-path=mysql_root
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 18
+Server version: 5.6.44-enterprise-gpl-pro MySQL Community Server (GPL)
+
+Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> CREATE USER 'MGRuser'@'localhost' IDENTIFIED BY 'MGRuser123';
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> GRANT ALL PRIVILEGES ON *.* TO 'MGRuser'@'localhost' IDENTIFIED BY 'MGRuser123' WITH GRANT OPTION;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> exit
+Bye
+[root@lithoam OAM_backup_config]#
+choose >> 84
+
+You have selected: R04.07.04.01
+You have selected:
+          device : current            => new
+             RTR :                    => R04.07.04.01
+             STV :                    => R04.12.00
+
+Which device would you like to add, upgrade or remove?
+ [ 0] Apply the selected changes
+ [ 1] AMS
+ [ 2] BAT
+ [ 3] CCI
+ [ 4] EMG
+ [ 5] FAF
+ [ 6] HUB
+ [ 7] IIW
+ [ 8] LGP
+ [ 9] PBC
+ [10] PBC1
+ [11] RTR
+ [12] SERVICES
+ [13] STV
+ [14] SYS
+choose >> 0
+
+
+*** Installing SYS is mandatory when using STV ***
+
+
+You have selected:
+          device : current            => new
+             RTR :                    => R04.07.04.01
+             STV :                    => R04.12.00
+
+Which device would you like to add, upgrade or remove?
+ [ 0] Apply the selected changes
+ [ 1] AMS
+ [ 2] BAT
+ [ 3] CCI
+ [ 4] EMG
+ [ 5] FAF
+ [ 6] HUB
+ [ 7] IIW
+ [ 8] LGP
+ [ 9] PBC
+ [10] PBC1
+ [11] RTR
+ [12] SERVICES
+ [13] STV
+ [14] SYS
+choose >> 14
+Please select the version of the SYS you want to support in the MGR.
+Select the version closest to the desired version of your SYS, but never higher!
+Only versions higher than the current database version are shown.
+Only versions lower than currently installed devices are shown.
+
+Select option 2 if you want to remove support for the SYS;
+ [ 0] Go back (no selection)
+ [ 1] List all versions available
+ [ 2] Remove  (Removes all support!)
+ [ 3] R01.00.00
+choose >> 3
+
+You have selected: R01.00.00
+You have selected:
+          device : current            => new
+             RTR :                    => R04.07.04.01
+             STV :                    => R04.12.00
+             SYS :                    => R01.00.00
+
+Which device would you like to add, upgrade or remove?
+ [ 0] Apply the selected changes
+ [ 1] AMS
+ [ 2] BAT
+ [ 3] CCI
+ [ 4] EMG
+ [ 5] FAF
+ [ 6] HUB
+ [ 7] IIW
+ [ 8] LGP
+ [ 9] PBC
+ [10] PBC1
+ [11] RTR
+ [12] SERVICES
+ [13] STV
+ [14] SYS
+choose >> 0
+You have selected:
+          device : current            => new
+             RTR :                    => R04.07.04.01
+             STV :                    => R04.12.00
+             SYS :                    => R01.00.00
+
+Continue [Y/n]? >> y
+
+Setting maxShortCodeLength to 5
+Now start the Webserver (master only) with /usr/TextPass/bin/tp_mgr_start
+[root@lithoam OAM_backup_config]# /usr/TextPass/bin/tp_mgr_start
+Starting with clean XML cache
+No peerfserver defined in '/etc/hosts'
+Continuing as stand-alone Master
+MGR started...
+[root@lithoam OAM_backup_config]# cat /etc/hosts
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+10.183.141.1    ntpserver1
+10.183.141.46   lithoam fserver1
+10.183.141.108   lithlgp
+10.183.141.109   lithte1
+10.183.141.91   lithte2
+10.183.141.112   lithte3
+10.183.141.105   lithte4
+10.183.141.56   lithspf1
+10.183.141.86   lithspf2
+10.183.141.120   lithspf3
+10.183.141.57   lithspf4
+[root@lithoam OAM_backup_config]# systemctl status mgr
+● mgr.service - MGR - An OAM element
+   Loaded: loaded (/etc/systemd/system/mgr.service; enabled; vendor preset: disabled)
+   Active: inactive (dead) since Tue 2019-10-15 18:33:13 CEST; 14h ago
+
+Oct 15 18:33:11 lithoam tp_mgr_stop[6094]: Stopping MGR Device Poller...
+Oct 15 18:33:11 lithoam tp_mgr_stop[6094]: All processes finished.
+Oct 15 18:33:12 lithoam tp_mgr_start[6157]: Starting with clean XML cache
+Oct 15 18:33:12 lithoam tp_mgr_start[6157]: No peerfserver defined in '/etc/hosts'
+Oct 15 18:33:12 lithoam tp_mgr_start[6157]: MGR system configured as slave system.
+Oct 15 18:33:12 lithoam tp_mgr_start[6157]: MGR system running as slave.
+Oct 15 18:33:12 lithoam tp_mgr_stop[6208]: Stopping Transfer Client/Server...
+Oct 15 18:33:12 lithoam tp_mgr_stop[6208]: Stopping MGR Device Poller...
+Oct 15 18:33:13 lithoam tp_mgr_stop[6208]: All processes finished.
+Oct 15 18:33:13 lithoam systemd[1]: Started MGR - An OAM element.
+[root@lithoam OAM_backup_config]# su - textpass
+Last login: Wed Oct 16 08:15:01 CEST 2019
+[textpass@lithoam ~]$ tp_auth set --name="admin" --password="admin123"
+
+Operation Successful
+[textpass@lithoam ~]$ stv_admin --upgrade_db
+
+The application 'stv_admin' has terminated unexpectedly with the following
+message:
+
+***
+*** StatView::Error::Db: DBI
+*** connect('database=;host=localhost;port=3306','STVuser',...) failed:
+*** Access denied for user 'STVuser'@'localhost' (using password: YES)
+***
+
+Detailed trace message has been saved in
+
+*** /usr/TextPass/crash.stv_admin.29414
+
+Please attach this file when contacting your support desk.
+
+[textpass@lithoam ~]$ stv_admin --init_mgr_sync
+
+The application 'stv_admin' has terminated unexpectedly.
+
+
+Detailed trace message has been saved in
+
+*** /usr/TextPass/crash.stv_admin.29425
+
+Please attach this file when contacting your support desk.
+
+[textpass@lithoam ~]$ stv_copy_key --all_pollers
+
+The application 'stv_copy_key' has terminated unexpectedly.
+
+
+Detailed trace message has been saved in
+
+*** /usr/TextPass/crash.stv_copy_key.29449
+
+Please attach this file when contacting your support desk.
+
+[textpass@lithoam ~]$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

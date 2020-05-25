@@ -1,0 +1,94 @@
+virtualpointcode="5350"
+
+pointcode="141"
+
+
+
+
+****** tester.sh ***
+#
+#pointcode:context.virtualpointcode
+TST_M3UA_ROUTE=0.141:1.5350
+TST_M3UA_REMOTE=10.183.141.61:53113
+TST_M3UA_LOCAL=10.183.141.61:53115
+export TST_M3UA_ROUTE TST_M3UA_REMOTE TST_M3UA_LOCAL
+/usr/TextPass/bin/tester_sigtran --debug=SCTP --stderr $@
+
+
+
+
+=====================SingleMO
+<tester>
+<load>
+<profile name="single">
+<coordinates name="start" timeOffset="0" requestsPerSec="0"/>
+<coordinates name="submitting" timeOffset="1" requestsPerSec="1"/>
+<coordinates name="down" timeOffset="2" requestsPerSec="0"/>
+<coordinates name="end" timeOffset="300" requestsPerSec="0"/>
+</profile>
+</load>
+<requests>
+<defaults networkIndicator="2" smscPointCode="273"
+hlrPointCode="1186" mscPointCode="1186" routing="gt"
+mapVersion="2" smsc="+319180000234" msc="+311721234567"
+imsi="20412??????????" loadProfile="single"/>
+<moForwardSmRequest name="mofsm" messageLength="112" mapVersion="3"
+recipient="+254728681062" originator="+31612345678" />
+</requests>
+</tester>
+
+=====MultipleMO/MT
+<tester>
+<load>
+<profile name="peak">
+<coordinates name="start" timeOffset="0"
+requestsPerSec="1"/>
+<coordinates name="goingtopeak" timeOffset="100.53"
+requestsPerSec="1"/>
+<coordinates name="peakreached" timeOffset="110.16"
+requestsPerSec="1"/>
+<coordinates name="backtonormal" timeOffset="120.36"
+requestsPerSec="1"/>
+<coordinates name="end" timeOffset="300"
+requestsPerSec="1"/>
+</profile>
+<profile name="normal">
+<coordinates name="start" timeOffset="0"
+requestsPerSec="1"/>
+<coordinates name="end" timeOffset="300"
+requestsPerSec="1"/>
+</profile>
+</load>
+<requests>
+<defaults networkIndicator="2" smscPointCode="160"
+hlrPointCode="1186" mscPointCode="1186" routing="gt"
+mapVersion="2" smsc="+319180000234" msc="+311721234567"
+imsi="20412??????????" loadProfile="normal"/>
+<moForwardSmRequest name="mofsm" smscPointCode="273"
+messageLength="112" mapVersion="3" recipient="+3169876????"
+originator="+316112233??" loadProfile="peak"/>
+<moForwardSmRequest name="mofsm2" smscPointCode="271"
+messageContent="blablabla" routing="ssn"
+recipient="+3169876????" originator="+316112233??"/>
+<mtForwardSmRequest name="mtfsm1" smscPointCode="273"
+messageLength="112" mapVersion="3" imsi="2040421212????"
+originator="+316112233??"/>
+<mtForwardSmRequest name="mtfsm2" smscPointCode="271"
+messageLength="103" routing="ssn" imsi="2040421212????"
+originator="+316112233??"/>
+<mtRequest name="mt1" smscPointCode="271" messageLength="103"
+routing="ssn" recipient="2040421212????"
+originator="+316112233??"/>
+<sendRoutingInfoForSmRequest name="srism1"
+recipient="+316233???51"/>
+<reportSmDeliveryStatusRequest name="repsts1"
+recipient: 316233???51" smsc="+31623312451"
+outcome="memoryCapacityExceeded"/>
+<alertServiceCentreRequest name="altsc1"
+recipient="+316233???51" smsc="+31623312451"/>
+</requests>
+<responses>
+<moForwardSmResponse success="3" timeout="1"/>
+<mtForwardSmResponse success="9" absentSubscriber="1"/>
+</responses>
+</tester>

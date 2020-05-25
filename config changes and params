@@ -1,0 +1,92 @@
+1. Enable the Lithium SW local repo
+
+	yum-config-manager --enable lithium-SW-repo-Local
+
+2. As the root user, add the following parameters to /etc/sysctl.d/99-sysctl.conf.
+
+	net.core.rmem_max=8388608
+	net.core.wmem_max=8388608
+	net.core.rmem_default=1310710
+	net.core.wmem_default=1310710
+
+After setting the above parameters, make them effective by running the command:
+	sysctl -p /etc/sysctl.d/99-sysctl.conf
+
+3. Create and set the tmpdir in /etc/my.cnf under the section [mysqld], if not set
+	mkdir -p /data/mysql_tmp
+	chmod 777 /data/mysql_tmp
+	vi /etc/my.cnf
+	
+4. Remove ib_logfile* files from /var/lib/mysql:
+
+	 rm /var/lib/mysql/ib_logfile0
+	 rm /var/lib/mysql/ib_logfile1
+	 
+5. Create the mysqldata directory in /data:
+	
+	mkdir -p /data/mysqldata
+
+6. Set directory permissions for mysqldata:
+	chown -R mysql /data/mysqldata
+	chgrp -R mysql /data/mysqldata
+	
+7. Edit /etc/my.cnf: and Uncomment the default-time-zone parameter and ensure that the default time zone is set. If
+not, set it properly as below:
+
+	[mysqld]
+	default-time-zone = 'GMT'
+
+8. using the sed command as below set the transaction_isolation parameter to READ-COMMITTED:
+
+	sed -i 's/transaction_isolation = REPEATABLE-READ/transaction_isolation = READ-COMMITTED/g' /etc/my.cnf
+	
+9. Create a link for MGRdata.xml.gz:
+
+	ln -s /usr/TextPass/etc/MGRdata.xml.<ip_address>.gz /usr/TextPass/etc/MGRdata.xml.gz
+
+10. Make sure that the directories on the mount points /dbamsstore/ and /dbamslog are created for
+storing the master and replica databases. As the root user, execute the following commands:
+
+	chmod 777 /data
+	mkdir /data/dbamsstore
+	chown textpass:textpass /data/dbamsstore
+	ln -s /data/dbamsstore /dbamsstore
+	mkdir /data/dbamslog
+	chown textpass:textpass /data/dbamslog
+	ln -s /data/dbamslog /dbamslog
+	
+11. Make sure that the directories on the mount points /dbamsstore/ and /dbamslog are created
+for storing the master and replica databases.
+
+	mkdir /dbamsstore/master
+	chown textpass:textpass /dbamsstore/master
+	mkdir /dbamsstore/replica
+	chown textpass:textpass /dbamsstore/replica
+	mkdir /dbamslog/master
+	chown textpass:textpass /dbamslog/master
+	mkdir /dbamslog/replica
+	chown textpass:textpass /dbamslog/replica
+	
+12. Log on to the MGR interface and Go to Statistics ➤ Settings ➤ Pollers and create a poller for each server that must be polled
+
+13. Go to Settings ➤ Network Layout ➤ Servers and assign the pollers to the correct servers.
+
+14. Go to Statistics ➤ Settings ➤ Polling Groups, and configure the polling intervals. Newly created pollers default to the "Do not poll" interval
+
+15. Go to Settings ➤ Network Layout ➤ Devices and assign the pollers to the correct devices
+
+16. configure the common_config.txt file (sample file from a full element installation attached)
+
+17. COnfigure the hostname_config.txt file (sample file from a full element installation attached).
+
+18.  Edit the file /etc/sysctl.d/99-sysctl.conf present on the OAM node and add the KeepAlive parameters:
+	
+	vi /etc/sysctl.d/99-sysctl.conf
+	First KeepAlive packet will be sent after specified time.
+	net.ipv4.tcp_keepalive_time = 1800
+	Resend the KeepAlive packet after specified time.
+	net.ipv4.tcp_keepalive_intvl = 30
+	Number of times, KeepAlive packet will be sent
+	net.ipv4.tcp_keepalive_probes = 9
+
+19. 

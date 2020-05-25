@@ -1,0 +1,112 @@
+<!--
+    Host Specific configuration file for the TextPass Product Suite
+    (c) Copyright 2007-2017 NewNet
+
+    Create by Automation tool on : Thu Aug 24 08:36:31 UTC 2017
+-->
+
+
+<tpconfig
+    amsdbdatabasedirectorymaster="/dbamsstore/master"
+    amsdbdatabasedirectoryreplica="/dbamsstore/replica"
+    amsdbtransactiondirectorymaster="/dbamslog/master"
+    amsdbtransactiondirectoryreplica="/dbamslog/replica"
+
+    gtaddressinfo="313130009702"
+
+    iiwdefaultlistenerindex="1"
+    iiwdiamavpcfgfile="/usr/TextPass/etc/hss_diameter_config.xml"
+    iiwdiamdwrperiod="100"
+    iiwdiammaxpendingdwrs="100"
+    iiwdiamoriginhost="10.41.136.92"
+    iiwdiamproxyablerequests="false"
+    iiwdiamquerytimeout="30"
+    iiwdiamreconnectperiod="100"
+    iiwdiamstopafterdc="false"
+    iiwhostnameownexternal="ipsmgw"
+    iiwhssquerytype="normal"
+    iiwhssunavailablethreshold="10"
+    iiwmaxforwardresponsetime="60"
+    iiwmaxsmsccount="10"
+    iiwmtimsmaxresponsetime="60"
+    iiwmtimstransport="udp"
+    iiwrecipientlifetime="3600"
+    iiwrouterdistributionmode="global"
+    iiwunsubscribehss="false"
+
+    ipaddress="10.41.136.92"
+
+    pointcode="141"
+
+    processpriority="critical"
+
+    runqclidprocess="true"
+    runtextamsprocess="true"
+    runtextfafprocess="true"
+    runtexthubprocess="true"
+    runtextiiwprocess="true"
+    runtextpassprocess="true"
+    runtextpbcprocess="true"
+    runtpfclientprocess="false"
+
+    useapplicationccdrgroupid="false"
+    requiress7connectivity="false"
+    >
+   <m3ualocaladdress spec="10.41.136.92"/>
+   <m3uasgp name="localtester"
+        useforvirtualpointcode="true"
+        sctplocalport="53113"
+        sctpremoteport="53115"
+      >
+    <remoteaddress spec="10.41.136.92"/>
+  </m3uasgp>
+
+   <m3uasgp name="pico_vm_9"
+        useforvirtualpointcode="true"
+        sctplocalport="53114"
+        sctpremoteport="53116"
+      >
+    <remoteaddress spec="10.41.136.99"/>
+  </m3uasgp>
+
+  <destination name="STP" type ="stp" pointcode="5137">
+    <route m3uasgp="localtester"/>
+  </destination>
+
+  <destination name="STP-2" type ="stp" pointcode="5135">
+    <route m3uasgp="pico_vm_9"/>
+  </destination>
+
+
+    <fxferfile
+        localpath="/usr/TextPass/etc/common_config.txt"
+        serverpath="/usr/TextPass/etc/common_config.txt"
+        validate="/usr/TextPass/bin/tp_config --validatecommonconfig SERVERFILE"
+        />
+
+    <fxferfile
+        localpath="/usr/TextPass/etc/MGRdata.xml.gz"
+        />
+
+    <siplistener
+        maxresponsetime="60"
+        maxsessions="50"
+        name="SIP-UDP"
+        port="5060"
+        protocol="udp"
+        />
+
+    <siplistener
+        adminstate="active"
+        maxresponsetime="60"
+        maxsessions="50"
+        name="msggw"
+        port="5060"
+        protocol="tcp"
+        />
+
+    <trapreceiver ipaddress="127.0.0.1" udpport="11173" />
+
+<amsparalleldelivery description="AMS_Issue" smppservicetype="CRM" initialstart="10" rate="2"/>
+
+</tpconfig>

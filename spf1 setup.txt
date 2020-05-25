@@ -1,0 +1,715 @@
+
+*************** Do the following while at step 4.5 part c, of configure mysql ********
+
+
+[root@lithspf1 dbspf]# df -kh
+Filesystem                          Size  Used Avail Use% Mounted on
+/dev/mapper/tproot-lv_root           10G  6.4G  3.2G  67% /
+devtmpfs                             35G     0   35G   0% /dev
+tmpfs                                35G     0   35G   0% /dev/shm
+tmpfs                                35G   20M   35G   1% /run
+tmpfs                                35G     0   35G   0% /sys/fs/cgroup
+/dev/sdb1                            89G   57M   84G   1% /backup
+/dev/sda1                           477M  113M  339M  25% /boot
+/dev/mapper/tproot-lv_var            20G  1.3G   17G   8% /var
+/dev/mapper/tproot-lv_var_textpass   59G   53M   56G   1% /var/TextPass
+tmpfs                               6.9G     0  6.9G   0% /run/user/0
+[root@lithspf1 dbspf]# cd /backup
+[root@lithspf1 backup]# mkdir mysqldatabackup
+[root@lithspf1 backup]# cd /dbspf/
+[root@lithspf1 dbspf]# ll
+total 12
+drwxr-xr-x 3 root  root  4096 Oct  1 10:19 mysqlcluster
+drwx------ 6 mysql mysql 4096 Oct  2 14:41 mysqldata
+drwxrwxrwx 2 root  root  4096 Oct  2 14:41 mysql_tmp
+[root@lithspf1 dbspf]# mv mysqldata /backup/mysqldatabackup/
+[root@lithspf1 dbspf]# ls -rtl
+total 8
+drwxr-xr-x 3 root root 4096 Oct  1 10:19 mysqlcluster
+drwxrwxrwx 2 root root 4096 Oct  2 14:41 mysql_tmp
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# ls -rtl
+total 8
+drwxr-xr-x 3 root root 4096 Oct  1 10:19 mysqlcluster
+drwxrwxrwx 2 root root 4096 Oct  2 14:41 mysql_tmp
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# rm -rf mysql*
+[root@lithspf1 dbspf]# ls -rtl
+total 0
+[root@lithspf1 dbspf]# systemctl stop mysql
+[root@lithspf1 dbspf]# systemctl status mysql
+● mysql.service - LSB: start and stop MySQL
+   Loaded: loaded (/etc/rc.d/init.d/mysql; bad; vendor preset: disabled)
+   Active: inactive (dead) since Thu 2019-10-03 10:19:07 CEST; 5s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 5051 ExecStop=/etc/rc.d/init.d/mysql stop (code=exited, status=0/SUCCESS)
+  Process: 1499 ExecStart=/etc/rc.d/init.d/mysql start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/mysql.service
+           ├─2805 /bin/sh /usr/local/bin/mysqld_safe --datadir=/dbspf/mysqldata --pid-file=/dbspf/mysqldata/mysqld.pid --default-storage-engine=...
+           └─3343 /usr/local/sbin/mysqld --basedir=/usr/local --datadir=/dbspf/mysqldata --plugin-dir=/usr/local/lib64/mysql/plugin --user=mysql...
+
+Oct 02 14:40:45 lithspf1 systemd[1]: Starting LSB: start and stop MySQL...
+Oct 02 14:40:46 lithspf1 mysql[1499]: wait_for_ndbd: INFO: Our NDB node# is 2 using host 10.183.141.49.
+Oct 02 14:40:46 lithspf1 wait_for_ndbd[1752]: INFO: Our NDB node# is 2 using host 10.183.141.49.
+Oct 02 14:41:37 lithspf1 mysql[1499]: wait_for_ndbd: INFO: Local NDB started within 1 minute(s), wait others
+Oct 02 14:41:37 lithspf1 mysql[1499]: wait_for_ndbd: INFO: All nodes started, continuing startup
+Oct 02 14:41:42 lithspf1 mysql[1499]: Starting MySQL.....[  OK  ]
+Oct 02 14:41:42 lithspf1 systemd[1]: Started LSB: start and stop MySQL.
+Oct 03 10:19:07 lithspf1 systemd[1]: Stopping LSB: start and stop MySQL...
+Oct 03 10:19:07 lithspf1 mysql[5051]: MySQL manager or server PID file could not be found![FAILED]
+Oct 03 10:19:07 lithspf1 systemd[1]: Stopped LSB: start and stop MySQL.
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# ps -ef | grep ndb
+root       1498      1  0 Oct02 ?        00:00:16 /usr/local/sbin/ndbmtd
+root       1501   1498  3 Oct02 ?        00:46:55 /usr/local/sbin/ndbmtd
+root       2805      1  0 Oct02 ?        00:00:00 /bin/sh /usr/local/bin/mysqld_safe --datadir=/dbspf/mysqldata --pid-file=/dbspf/mysqldata/mysqld.pid --default-storage-engine=ndb
+mysql      3343   2805  1 Oct02 ?        00:18:12 /usr/local/sbin/mysqld --basedir=/usr/local --datadir=/dbspf/mysqldata --plugin-dir=/usr/local/lib64/mysql/plugin --user=mysql --default-storage-engine=ndb --log-error=lithspf1.err --pid-file=/dbspf/mysqldata/mysqld.pid --port=3306
+root       5080   3029  0 10:19 pts/6    00:00:00 grep --color=auto ndb
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# ps -ef | grep mysql
+root       2805      1  0 Oct02 ?        00:00:00 /bin/sh /usr/local/bin/mysqld_safe --datadir=/dbspf/mysqldata --pid-file=/dbspf/mysqldata/mysqld.pid --default-storage-engine=ndb
+mysql      3343   2805  1 Oct02 ?        00:18:13 /usr/local/sbin/mysqld --basedir=/usr/local --datadir=/dbspf/mysqldata --plugin-dir=/usr/local/lib64/mysql/plugin --user=mysql --default-storage-engine=ndb --log-error=lithspf1.err --pid-file=/dbspf/mysqldata/mysqld.pid --port=3306
+root       5084   3029  0 10:20 pts/6    00:00:00 grep --color=auto mysql
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# kill -9 2805
+[root@lithspf1 dbspf]# kill -9 3029
+Connection to 10.183.141.49 closed.
+                                                                                                                                                  ✘
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[2019-10-03 08:20.22]  ~
+[Administrator.WIN-C08VCFOUQOM] ➤ ssh root@10.183.141.49
+X11 forwarding request failed on channel 0
+Last login: Thu Oct  3 10:01:56 2019 from ip-10-183-141-34.ec2.internal
+[root@lithspf1 ~]#  ps -ef | grep mysql
+mysql      3343      1  1 Oct02 ?        00:18:13 /usr/local/sbin/mysqld --basedir=/usr/local --datadir=/dbspf/mysqldata --plugin-dir=/usr/local/lib64/mysql/plugin --user=mysql --default-storage-engine=ndb --log-error=lithspf1.err --pid-file=/dbspf/mysqldata/mysqld.pid --port=3306
+root       5124   5099  0 10:20 pts/6    00:00:00 grep --color=auto mysql
+[root@lithspf1 ~]# kill -9 3343
+[root@lithspf1 ~]#  ps -ef | grep mysql
+root       5127   5099  0 10:20 pts/6    00:00:00 grep --color=auto mysql
+[root@lithspf1 ~]#
+[root@lithspf1 ~]#
+[root@lithspf1 ~]#
+[root@lithspf1 ~]#  ps -ef | grep ndb
+root       1498      1  0 Oct02 ?        00:00:16 /usr/local/sbin/ndbmtd
+root       1501   1498  3 Oct02 ?        00:46:58 /usr/local/sbin/ndbmtd
+root       5129   5099  0 10:20 pts/6    00:00:00 grep --color=auto ndb
+[root@lithspf1 ~]#
+[root@lithspf1 ~]# systemctl status ndb
+Unit ndb.service could not be found.
+[root@lithspf1 ~]# systemctl status ndbmtd
+● ndbmtd.service - SYSV: Starts, stops and restarts MySQL Cluster data node daemon.
+   Loaded: loaded (/etc/rc.d/init.d/ndbmtd; bad; vendor preset: disabled)
+   Active: active (running) since Wed 2019-10-02 14:40:45 CEST; 19h ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 1277 ExecStart=/etc/rc.d/init.d/ndbmtd start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/ndbmtd.service
+           ├─1498 /usr/local/sbin/ndbmtd
+           └─1501 /usr/local/sbin/ndbmtd
+
+Oct 02 14:40:44 lithspf1 systemd[1]: Starting SYSV: Starts, stops and restarts MySQL Cluster data node daemon....
+Oct 02 14:40:45 lithspf1 ndbmtd[1277]: 2019-10-02 14:40:45 [ndbd] INFO     -- Angel connected to '10.183.141.17:1186'
+Oct 02 14:40:45 lithspf1 ndbmtd[1277]: 2019-10-02 14:40:45 [ndbd] INFO     -- Angel allocated nodeid: 2
+Oct 02 14:40:45 lithspf1 ndbmtd[1277]: Starting /usr/local/sbin/ndbmtd succeeded.
+Oct 02 14:40:45 lithspf1 systemd[1]: Started SYSV: Starts, stops and restarts MySQL Cluster data node daemon..
+[root@lithspf1 ~]# systemctl stop ndbmtd
+[root@lithspf1 ~]# systemctl status ndbmtd
+● ndbmtd.service - SYSV: Starts, stops and restarts MySQL Cluster data node daemon.
+   Loaded: loaded (/etc/rc.d/init.d/ndbmtd; bad; vendor preset: disabled)
+   Active: inactive (dead) since Thu 2019-10-03 10:21:29 CEST; 2s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 5140 ExecStop=/etc/rc.d/init.d/ndbmtd stop (code=killed, signal=TERM)
+  Process: 1277 ExecStart=/etc/rc.d/init.d/ndbmtd start (code=exited, status=0/SUCCESS)
+
+Oct 02 14:40:44 lithspf1 systemd[1]: Starting SYSV: Starts, stops and restarts MySQL Cluster data node daemon....
+Oct 02 14:40:45 lithspf1 ndbmtd[1277]: 2019-10-02 14:40:45 [ndbd] INFO     -- Angel connected to '10.183.141.17:1186'
+Oct 02 14:40:45 lithspf1 ndbmtd[1277]: 2019-10-02 14:40:45 [ndbd] INFO     -- Angel allocated nodeid: 2
+Oct 02 14:40:45 lithspf1 ndbmtd[1277]: Starting /usr/local/sbin/ndbmtd succeeded.
+Oct 02 14:40:45 lithspf1 systemd[1]: Started SYSV: Starts, stops and restarts MySQL Cluster data node daemon..
+Oct 03 10:21:29 lithspf1 systemd[1]: Stopping SYSV: Starts, stops and restarts MySQL Cluster data node daemon....
+Oct 03 10:21:29 lithspf1 systemd[1]: Stopped SYSV: Starts, stops and restarts MySQL Cluster data node daemon..
+[root@lithspf1 ~]#
+[root@lithspf1 ~]#
+[root@lithspf1 ~]# ps -ef | grep ndb
+root       5150   5099  0 10:21 pts/6    00:00:00 grep --color=auto ndb
+[root@lithspf1 ~]#
+[root@lithspf1 ~]#
+[root@lithspf1 ~]# cd /dbspf/
+[root@lithspf1 dbspf]# ll
+total 0
+[root@lithspf1 dbspf]# ls -rtl
+total 0
+[root@lithspf1 dbspf]# mkdir /data
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# pwd
+/dbspf
+[root@lithspf1 dbspf]# rm -rf /data/
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# mkdir /var/TextPass/mysqldata
+[root@lithspf1 dbspf]# mkdir /var/TextPass/mysql_tmp
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# mkdir /var/TextPass/mysqlcluster
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# ln -s /var/TextPass/mysqldata/ /dbspf/mysqldata
+[root@lithspf1 dbspf]# ln -s /var/TextPass/mysql_tmp/ /dbspf/mysql_tmp
+[root@lithspf1 dbspf]# ln -s /var/TextPass/mysqlcluster/ /dbspf/mysqlcluster
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# chmod 777 /var/TextPass/mysqldata/
+[root@lithspf1 dbspf]# chmod 777 /var/TextPass/mysql_tmp/
+[root@lithspf1 dbspf]# chmod 777 /var/TextPass/mysqlcluster/
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# ls -rtl /var/TextPass/mysqldata/
+total 0
+[root@lithspf1 dbspf]# chown -R mysql /var/TextPass/mysqldata/
+[root@lithspf1 dbspf]# chgrp -R mysql /var/TextPass/mysqldata/
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# chown -R mysql /var/TextPass/mysql_tmp/
+[root@lithspf1 dbspf]# chgrp -R mysql /var/TextPass/mysql_tmp/
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# chown -R mysql /var/TextPass/mysqlcluster/
+[root@lithspf1 dbspf]# chgrp -R mysql /var/TextPass/mysqlcluster/
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# /usr/local/bin/mysql_install_db
+Installing MySQL system tables...2019-10-03 10:29:18 0 [Warning] Using unique option prefix key_buffer instead of key_buffer_size is deprecated and will be removed in a future release. Please use the full name instead.
+2019-10-03 10:29:18 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).
+2019-10-03 10:29:18 0 [Note] Ignoring --secure-file-priv value as server is running with --bootstrap.
+2019-10-03 10:29:18 0 [Note] /usr/local/sbin/mysqld (mysqld 5.6.44-ndb-7.4.24-cluster-log) starting as process 5199 ...
+2019-10-03 10:29:18 5199 [Note] InnoDB: Using atomics to ref count buffer pool pages
+2019-10-03 10:29:18 5199 [Note] InnoDB: The InnoDB memory heap is disabled
+2019-10-03 10:29:18 5199 [Note] InnoDB: Mutexes and rw_locks use GCC atomic builtins
+2019-10-03 10:29:18 5199 [Note] InnoDB: Memory barrier is not used
+2019-10-03 10:29:18 5199 [Note] InnoDB: Compressed tables use zlib 1.2.11
+2019-10-03 10:29:18 5199 [Note] InnoDB: Using Linux native AIO
+2019-10-03 10:29:18 5199 [Note] InnoDB: Using CPU crc32 instructions
+2019-10-03 10:29:18 5199 [Note] InnoDB: Initializing buffer pool, size = 128.0M
+2019-10-03 10:29:18 5199 [Note] InnoDB: Completed initialization of buffer pool
+2019-10-03 10:29:18 5199 [Note] InnoDB: The first specified data file ./ibdata1 did not exist: a new database to be created!
+2019-10-03 10:29:18 5199 [Note] InnoDB: Setting file ./ibdata1 size to 12 MB
+2019-10-03 10:29:18 5199 [Note] InnoDB: Database physically writes the file full: wait...
+2019-10-03 10:29:18 5199 [Note] InnoDB: Setting log file ./ib_logfile101 size to 48 MB
+2019-10-03 10:29:18 5199 [Note] InnoDB: Setting log file ./ib_logfile1 size to 48 MB
+2019-10-03 10:29:18 5199 [Note] InnoDB: Renaming log file ./ib_logfile101 to ./ib_logfile0
+2019-10-03 10:29:18 5199 [Warning] InnoDB: New log files created, LSN=45781
+2019-10-03 10:29:18 5199 [Note] InnoDB: Doublewrite buffer not found: creating new
+2019-10-03 10:29:18 5199 [Note] InnoDB: Doublewrite buffer created
+2019-10-03 10:29:18 5199 [Note] InnoDB: 128 rollback segment(s) are active.
+2019-10-03 10:29:18 5199 [Warning] InnoDB: Creating foreign key constraint system tables.
+2019-10-03 10:29:18 5199 [Note] InnoDB: Foreign key constraint system tables created
+2019-10-03 10:29:18 5199 [Note] InnoDB: Creating tablespace and datafile system tables.
+2019-10-03 10:29:18 5199 [Note] InnoDB: Tablespace and datafile system tables created.
+2019-10-03 10:29:18 5199 [Note] InnoDB: Waiting for purge to start
+2019-10-03 10:29:18 5199 [Note] InnoDB: 5.6.44 started; log sequence number 0
+2019-10-03 10:29:19 5199 [Note] Binlog end
+2019-10-03 10:29:19 5199 [Note] InnoDB: FTS optimize thread exiting.
+2019-10-03 10:29:19 5199 [Note] InnoDB: Starting shutdown...
+2019-10-03 10:29:20 5199 [Note] InnoDB: Shutdown completed; log sequence number 1625977
+OK
+
+Filling help tables...2019-10-03 10:29:20 0 [Warning] Using unique option prefix key_buffer instead of key_buffer_size is deprecated and will be removed in a future release. Please use the full name instead.
+2019-10-03 10:29:20 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).
+2019-10-03 10:29:20 0 [Note] Ignoring --secure-file-priv value as server is running with --bootstrap.
+2019-10-03 10:29:20 0 [Note] /usr/local/sbin/mysqld (mysqld 5.6.44-ndb-7.4.24-cluster-log) starting as process 5221 ...
+2019-10-03 10:29:20 5221 [Note] InnoDB: Using atomics to ref count buffer pool pages
+2019-10-03 10:29:20 5221 [Note] InnoDB: The InnoDB memory heap is disabled
+2019-10-03 10:29:20 5221 [Note] InnoDB: Mutexes and rw_locks use GCC atomic builtins
+2019-10-03 10:29:20 5221 [Note] InnoDB: Memory barrier is not used
+2019-10-03 10:29:20 5221 [Note] InnoDB: Compressed tables use zlib 1.2.11
+2019-10-03 10:29:20 5221 [Note] InnoDB: Using Linux native AIO
+2019-10-03 10:29:20 5221 [Note] InnoDB: Using CPU crc32 instructions
+2019-10-03 10:29:20 5221 [Note] InnoDB: Initializing buffer pool, size = 128.0M
+2019-10-03 10:29:20 5221 [Note] InnoDB: Completed initialization of buffer pool
+2019-10-03 10:29:20 5221 [Note] InnoDB: Highest supported file format is Barracuda.
+2019-10-03 10:29:20 5221 [Note] InnoDB: 128 rollback segment(s) are active.
+2019-10-03 10:29:20 5221 [Note] InnoDB: Waiting for purge to start
+2019-10-03 10:29:21 5221 [Note] InnoDB: 5.6.44 started; log sequence number 1625977
+2019-10-03 10:29:21 5221 [Note] Binlog end
+2019-10-03 10:29:21 5221 [Note] InnoDB: FTS optimize thread exiting.
+2019-10-03 10:29:21 5221 [Note] InnoDB: Starting shutdown...
+2019-10-03 10:29:23 5221 [Note] InnoDB: Shutdown completed; log sequence number 1625987
+OK
+
+To start mysqld at boot time you have to copy
+support-files/mysql.server to the right place for your system
+
+PLEASE REMEMBER TO SET A PASSWORD FOR THE MySQL root USER !
+To do so, start the server, then issue the following commands:
+
+  /usr/local/bin/mysqladmin -u root password 'new-password'
+  /usr/local/bin/mysqladmin -u root -h lithspf1 password 'new-password'
+
+Alternatively you can run:
+
+  /usr/local/bin/mysql_secure_installation
+
+which will also give you the option of removing the test
+databases and anonymous user created by default.  This is
+strongly recommended for production servers.
+
+See the manual for more instructions.
+
+You can start the MySQL daemon with:
+
+  cd /usr/local ; /usr/local/bin/mysqld_safe &
+
+You can test the MySQL daemon with mysql-test-run.pl
+
+  cd mysql-test ; perl mysql-test-run.pl
+
+Please report any problems at http://bugs.mysql.com/
+
+The latest information about MySQL is available on the web at
+
+  http://www.mysql.com
+
+Support MySQL by buying support/licenses at http://shop.mysql.com
+
+Note: new default config file not created.
+Please make sure your config file is current
+
+WARNING: Default config file /etc/my.cnf exists on the system
+This file will be read by default by the MySQL server
+If you do not want to use this, either remove it, or use the
+--defaults-file argument to mysqld_safe when starting the server
+
+[root@lithspf1 dbspf]# ndbmtd --initial
+2019-10-03 10:29:36 [ndbd] INFO     -- Angel connected to '10.183.141.17:1186'
+2019-10-03 10:29:36 [ndbd] INFO     -- Angel allocated nodeid: 2
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# ps -ef | grep ndb
+root       5246      1  0 10:29 ?        00:00:00 ndbmtd --initial
+root       5247   5246 99 10:29 ?        00:00:12 ndbmtd --initial
+root       5326   5099  0 10:29 pts/6    00:00:00 grep --color=auto ndb
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# systemctl start mysql
+[root@lithspf1 dbspf]# systemctl status mysql
+● mysql.service - LSB: start and stop MySQL
+   Loaded: loaded (/etc/rc.d/init.d/mysql; bad; vendor preset: disabled)
+   Active: active (running) since Thu 2019-10-03 10:30:05 CEST; 5s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 5051 ExecStop=/etc/rc.d/init.d/mysql stop (code=exited, status=0/SUCCESS)
+  Process: 5340 ExecStart=/etc/rc.d/init.d/mysql start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/mysql.service
+           ├─5392 /bin/sh /usr/local/bin/mysqld_safe --datadir=/dbspf/mysqldata --pid-file=/dbspf/mysqldata/mysqld.pid --default-storage-engine=...
+           └─5931 /usr/local/sbin/mysqld --basedir=/usr/local --datadir=/dbspf/mysqldata --plugin-dir=/usr/local/lib64/mysql/plugin --user=mysql...
+
+Oct 03 10:30:02 lithspf1 systemd[1]: Starting LSB: start and stop MySQL...
+Oct 03 10:30:02 lithspf1 mysql[5340]: wait_for_ndbd: INFO: Our NDB node# is 2 using host 10.183.141.49.
+Oct 03 10:30:02 lithspf1 mysql[5340]: wait_for_ndbd: INFO: Local NDB started within 1 minute(s), wait others
+Oct 03 10:30:02 lithspf1 mysql[5340]: wait_for_ndbd: INFO: All nodes started, continuing startup
+Oct 03 10:30:05 lithspf1 mysql[5340]: Starting MySQL...[  OK  ]
+Oct 03 10:30:05 lithspf1 systemd[1]: Started LSB: start and stop MySQL.
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# mysql -uroot -plokal$
+Warning: Using a password on the command line interface can be insecure.
+ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+[root@lithspf1 dbspf]# mysql -uroot mysql
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 3
+Server version: 5.6.44-ndb-7.4.24-cluster-log MySQL Community Server
+
+Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> SET PASSWORD FOR 'root'@'lithspf1'=PASSWORD('lokal$');
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> SET PASSWORD FOR 'root'@'lithspf2'=PASSWORD('lokal$');
+ERROR 1133 (42000): Can't find any matching row in the user table
+mysql> SET PASSWORD FOR 'root'@'10.183.141.49'=PASSWORD('lokal$');
+ERROR 1133 (42000): Can't find any matching row in the user table
+mysql>
+mysql>
+mysql>
+mysql> SET PASSWORD FOR 'root'@'localhost'=PASSWORD('lokal$');
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> exit
+Bye
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# su - textpass
+Last login: Thu Oct  3 09:00:50 CEST 2019 on pts/5
+[textpass@lithspf1 ~]$ cd etc/
+[textpass@lithspf1 etc]$ vi lithspf1_config.txt
+[textpass@lithspf1 etc]$
+[textpass@lithspf1 etc]$
+[textpass@lithspf1 etc]$ exit
+logout
+[root@lithspf1 dbspf]# mysql_config_editor set --login-path=mysql_root --host=localhost --user=root --skip-warn --password
+Enter password:
+[root@lithspf1 dbspf]# mysql --login-path=mysql_root-uroot -plokal$
+Warning: Using a password on the command line interface can be insecure.
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 4
+Server version: 5.6.44-ndb-7.4.24-cluster-log MySQL Community Server
+
+Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> exit
+Bye
+[root@lithspf1 dbspf]# chkconfig --add mysql
+[root@lithspf1 dbspf]# chkconfig --list | grep sql
+
+Note: This output shows SysV services only and does not include native
+      systemd services. SysV configuration data might be overridden by native
+      systemd configuration.
+
+      If you want to list systemd services use 'systemctl list-unit-files'.
+      To see services enabled on particular target use
+      'systemctl list-dependencies [target]'.
+
+mysql           0:off   1:off   2:off   3:on    4:on    5:on    6:off
+[root@lithspf1 dbspf]# chkconfig --add ndbmtd
+[root@lithspf1 dbspf]# chkconfig --list | grep ndb
+
+Note: This output shows SysV services only and does not include native
+      systemd services. SysV configuration data might be overridden by native
+      systemd configuration.
+
+      If you want to list systemd services use 'systemctl list-unit-files'.
+      To see services enabled on particular target use
+      'systemctl list-dependencies [target]'.
+
+ndbmtd          0:off   1:off   2:off   3:on    4:on    5:off   6:off
+[root@lithspf1 dbspf]# ps -ef | grep -i mysql
+root       5392      1  0 10:30 ?        00:00:00 /bin/sh /usr/local/bin/mysqld_safe --datadir=/dbspf/mysqldata --pid-file=/dbspf/mysqldata/mysqld.pid --default-storage-engine=ndb
+mysql      5931   5392  1 10:30 ?        00:00:19 /usr/local/sbin/mysqld --basedir=/usr/local --datadir=/dbspf/mysqldata --plugin-dir=/usr/local/lib64/mysql/plugin --user=mysql --default-storage-engine=ndb --log-error=lithspf1.err --pid-file=/dbspf/mysqldata/mysqld.pid --port=3306
+root       6119   5099  0 10:50 pts/6    00:00:00 grep --color=auto -i mysql
+[root@lithspf1 dbspf]# mysql --login-path=mysql_root
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 5
+Server version: 5.6.44-ndb-7.4.24-cluster-log MySQL Community Server
+
+Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> GRANT ALL ON *.* TO 'root'@'10.183.141.49' IDENTIFIED BY 'lokal$' WITH GRANT OPTION;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> GRANT ALL ON *.* TO 'root'@'10.183.141.41' IDENTIFIED BY 'lokal$' WITH GRANT OPTION;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> exit
+Bye
+[root@lithspf1 dbspf]# mysql --login-path=mysql_root
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 6
+Server version: 5.6.44-ndb-7.4.24-cluster-log MySQL Community Server
+
+Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> use test;
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+mysql> CREATE TABLE foo (I INT) ENGINE=NDBCLUSTER;
+Query OK, 0 rows affected (0.37 sec)
+
+mysql> INSERT INTO foo (I) VALUES (1);
+Query OK, 1 row affected (0.01 sec)
+
+mysql> SELECT * FROM foo;
++------+
+| I    |
++------+
+|    1 |
++------+
+1 row in set (0.00 sec)
+
+mysql> show tables
+    -> ;
++----------------+
+| Tables_in_test |
++----------------+
+| douglas        |
++----------------+
+1 row in set (0.00 sec)
+
+mysql> show global variables like 'max_connections';
++-----------------+-------+
+| Variable_name   | Value |
++-----------------+-------+
+| max_connections | 100   |
++-----------------+-------+
+1 row in set (0.00 sec)
+
+mysql> exit
+Bye
+[root@lithspf1 dbspf]# vi /etc/my.cnf
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# systemctl restart mysql
+[root@lithspf1 dbspf]# systemctl status mysql
+● mysql.service - LSB: start and stop MySQL
+   Loaded: loaded (/etc/rc.d/init.d/mysql; bad; vendor preset: disabled)
+   Active: active (running) since Thu 2019-10-03 10:55:21 CEST; 7s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 6143 ExecStop=/etc/rc.d/init.d/mysql stop (code=exited, status=0/SUCCESS)
+  Process: 6184 ExecStart=/etc/rc.d/init.d/mysql start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/mysql.service
+           ├─6236 /bin/sh /usr/local/bin/mysqld_safe --datadir=/dbspf/mysqldata --pid-file=/dbspf/mysqldata/mysqld.pid --default-storage-engine=...
+           └─6775 /usr/local/sbin/mysqld --basedir=/usr/local --datadir=/dbspf/mysqldata --plugin-dir=/usr/local/lib64/mysql/plugin --user=mysql...
+
+Oct 03 10:55:17 lithspf1 systemd[1]: Starting LSB: start and stop MySQL...
+Oct 03 10:55:18 lithspf1 mysql[6184]: wait_for_ndbd: INFO: Our NDB node# is 2 using host 10.183.141.49.
+Oct 03 10:55:18 lithspf1 mysql[6184]: wait_for_ndbd: INFO: Local NDB started within 1 minute(s), wait others
+Oct 03 10:55:18 lithspf1 mysql[6184]: wait_for_ndbd: INFO: All nodes started, continuing startup
+Oct 03 10:55:21 lithspf1 mysql[6184]: Starting MySQL...[  OK  ]
+Oct 03 10:55:21 lithspf1 systemd[1]: Started LSB: start and stop MySQL.
+[root@lithspf1 dbspf]# su - textpass
+Last login: Thu Oct  3 10:43:41 CEST 2019 on pts/6
+[textpass@lithspf1 ~]$ exit
+logout
+[root@lithspf1 dbspf]# /usr/TextPass/bin/spf_db_setup.pl
+Read MYSQL user-name, password and db-name from hostname and common config files in /usr/TextPass/etc/:
+
+    ===============================================================================================
+
+        ***GUIDE TO THIS SCRIPT***
+
+        This script is responsible for setting up new MySQL Cluster SQL nodes.
+
+        SQL node creation will involve some or all of the following actions, depending upon the
+        state of the SQL node:
+
+        - The creation of the SPF database (created the first time this script is ever executed).
+
+        - The creation and population of the SPF base tables (created once per cluster i.e. the first
+          time this script is ever executed).
+
+        - The creation of SPF views (created on each SQL node i.e. the first time this script is
+          executed against a particular SQL node)
+
+        - The creation of a user account on the new SQL node, which will also specify the node from
+          which that user will connect. If there will be N SPF processes running on several nodes,
+          all with the same user and each of which needs to connect to this SQL node, then this script
+          will need to be executed N times).
+
+        - The creation of a user account for replication on the new SQL node.
+
+        - Replication user should be specified in the host config file for Master node.
+
+        - Replication user should be same on both Master and Slave nodes.
+
+    ===============================================================================================
+
+
+Continue? (y/n): y
+Enter database name (empty for default 'spf'):
+
+***** Setting up SQL nodes *****
+
+Obtaining root login for SQL node '10.183.141.49'...
+Enter root password: lokal$
+Creating undo file, this could take a few minutes....done
+Enter password:
+Password set successfully.
+
+                        User 'SPFuser' should now be able to connect to 'spf' on node '10.183.141.49' from node '10.183.141.49'.
+                            You can confirm this by issuing the following command on node 10.183.141.49:
+
+                            shell> mysql --login-path=spf_local -Dspf -h10.183.141.49
+Enter password:
+Password set successfully.
+
+                        User 'SPFuser' should now be able to connect to 'spf' on node '10.183.141.49' from node '10.183.141.41'.
+                            You can confirm this by issuing the following command on node 10.183.141.41:
+
+                            shell> mysql --login-path=spf_local -Dspf -h10.183.141.49
+
+Add replication users for SQL node '10.183.141.49'? (y/n): y
+         <replication host="10.183.141.49" user="SPFrepluser" password="SPFrepluser123" />
+
+Creating and initialising SPF database tables...
+Warning: Using a password on the command line interface can be insecure.
+Populating SPF SERVICE table...done.
+Populating SPF SERVICE_STATUS table...done.
+Populating SPF PROFILE_INDEXES table...done.
+Sanity checking SPF tables...done.
+SPF database tables successfully created and initialised.
+Obtaining root login for SQL node '10.183.141.41'...
+Enter root password: lokal$
+Enter password:
+Password set successfully.
+
+                        User 'SPFuser' should now be able to connect to 'spf' on node '10.183.141.41' from node '10.183.141.49'.
+                            You can confirm this by issuing the following command on node 10.183.141.49:
+
+                            shell> mysql --login-path=spf_local -Dspf -h10.183.141.41
+Enter password:
+Password set successfully.
+
+                        User 'SPFuser' should now be able to connect to 'spf' on node '10.183.141.41' from node '10.183.141.41'.
+                            You can confirm this by issuing the following command on node 10.183.141.41:
+
+                            shell> mysql --login-path=spf_local -Dspf -h10.183.141.41
+
+Add replication users for SQL node '10.183.141.41'? (y/n): y
+         <replication host="10.183.141.41" user="SPFrepluser" password="SPFrepluser123" />
+
+
+
+Done.
+[root@lithspf1 dbspf]# mysql -uroot -plokal$
+Warning: Using a password on the command line interface can be insecure.
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 8
+Server version: 5.6.44-ndb-7.4.24-cluster-log MySQL Community Server
+
+Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| ndbinfo            |
+| performance_schema |
+| spf                |
+| test               |
++--------------------+
+6 rows in set (0.00 sec)
+
+mysql> use spf;
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+mysql> show tables;
++--------------------------+
+| Tables_in_spf            |
++--------------------------+
+| abl_template             |
+| abl_users                |
+| arp_template             |
+| bwl_template             |
+| contact                  |
+| contact_group            |
+| cpy_template             |
+| cte_template             |
+| dil_template             |
+| fte_template             |
+| fwd_template             |
+| profile                  |
+| profile_contains_service |
+| profile_indexes          |
+| profile_stats            |
+| schedule_template        |
+| service                  |
+| service_status           |
+| sig_template             |
+| subscriber               |
+| subscriber_times         |
+| uri_contact_template     |
++--------------------------+
+22 rows in set (0.00 sec)
+
+mysql> SELECT COUNT(*) FROM SERVICE;
++----------+
+| COUNT(*) |
++----------+
+|       32 |
++----------+
+1 row in set (0.00 sec)
+
+mysql> exit
+Bye
+[root@lithspf1 dbspf]# systemctl stop mysql
+[root@lithspf1 dbspf]# systemctl status mysql
+● mysql.service - LSB: start and stop MySQL
+   Loaded: loaded (/etc/rc.d/init.d/mysql; bad; vendor preset: disabled)
+   Active: inactive (dead) since Thu 2019-10-03 11:01:01 CEST; 6s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 6906 ExecStop=/etc/rc.d/init.d/mysql stop (code=exited, status=0/SUCCESS)
+  Process: 6184 ExecStart=/etc/rc.d/init.d/mysql start (code=exited, status=0/SUCCESS)
+
+Oct 03 10:55:17 lithspf1 systemd[1]: Starting LSB: start and stop MySQL...
+Oct 03 10:55:18 lithspf1 mysql[6184]: wait_for_ndbd: INFO: Our NDB node# is 2 using host 10.183.141.49.
+Oct 03 10:55:18 lithspf1 mysql[6184]: wait_for_ndbd: INFO: Local NDB started within 1 minute(s), wait others
+Oct 03 10:55:18 lithspf1 mysql[6184]: wait_for_ndbd: INFO: All nodes started, continuing startup
+Oct 03 10:55:21 lithspf1 mysql[6184]: Starting MySQL...[  OK  ]
+Oct 03 10:55:21 lithspf1 systemd[1]: Started LSB: start and stop MySQL.
+Oct 03 11:00:56 lithspf1 systemd[1]: Stopping LSB: start and stop MySQL...
+Oct 03 11:01:01 lithspf1 mysql[6906]: Shutting down MySQL.....[  OK  ]
+Oct 03 11:01:01 lithspf1 systemd[1]: Stopped LSB: start and stop MySQL.
+[root@lithspf1 dbspf]# systemctl start ndbmtd
+[root@lithspf1 dbspf]# systemctl status ndbmtd
+● ndbmtd.service - SYSV: Starts, stops and restarts MySQL Cluster data node daemon.
+   Loaded: loaded (/etc/rc.d/init.d/ndbmtd; bad; vendor preset: disabled)
+   Active: active (running) since Thu 2019-10-03 11:02:27 CEST; 19s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 7107 ExecStart=/etc/rc.d/init.d/ndbmtd start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/ndbmtd.service
+           ├─7114 /usr/local/sbin/ndbmtd
+           └─7115 /usr/local/sbin/ndbmtd
+
+Oct 03 11:02:27 lithspf1 systemd[1]: Starting SYSV: Starts, stops and restarts MySQL Cluster data node daemon....
+Oct 03 11:02:27 lithspf1 ndbmtd[7107]: 2019-10-03 11:02:27 [ndbd] INFO     -- Angel connected to '10.183.141.17:1186'
+Oct 03 11:02:27 lithspf1 ndbmtd[7107]: 2019-10-03 11:02:27 [ndbd] INFO     -- Angel allocated nodeid: 2
+Oct 03 11:02:27 lithspf1 systemd[1]: Started SYSV: Starts, stops and restarts MySQL Cluster data node daemon..
+Oct 03 11:02:27 lithspf1 ndbmtd[7107]: Starting /usr/local/sbin/ndbmtd succeeded.
+[root@lithspf1 dbspf]# systemctl start mysql
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]#
+[root@lithspf1 dbspf]# systemctl status mysql
+● mysql.service - LSB: start and stop MySQL
+   Loaded: loaded (/etc/rc.d/init.d/mysql; bad; vendor preset: disabled)
+   Active: active (running) since Thu 2019-10-03 11:03:00 CEST; 12s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 6906 ExecStop=/etc/rc.d/init.d/mysql stop (code=exited, status=0/SUCCESS)
+  Process: 7200 ExecStart=/etc/rc.d/init.d/mysql start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/mysql.service
+           ├─7252 /bin/sh /usr/local/bin/mysqld_safe --datadir=/dbspf/mysqldata --pid-file=/dbspf/mysqldata/mysqld.pid --default-storage-engine=...
+           └─7791 /usr/local/sbin/mysqld --basedir=/usr/local --datadir=/dbspf/mysqldata --plugin-dir=/usr/local/lib64/mysql/plugin --user=mysql...
+
+Oct 03 11:02:57 lithspf1 systemd[1]: Starting LSB: start and stop MySQL...
+Oct 03 11:02:57 lithspf1 mysql[7200]: wait_for_ndbd: INFO: Our NDB node# is 2 using host 10.183.141.49.
+Oct 03 11:02:57 lithspf1 mysql[7200]: wait_for_ndbd: INFO: Local NDB started within 1 minute(s), wait others
+Oct 03 11:02:57 lithspf1 mysql[7200]: wait_for_ndbd: INFO: All nodes started, continuing startup
+Oct 03 11:03:00 lithspf1 mysql[7200]: Starting MySQL...[  OK  ]
+Oct 03 11:03:00 lithspf1 systemd[1]: Started LSB: start and stop MySQL.
+[root@lithspf1 dbspf]# pwd
+/dbspf

@@ -1,0 +1,56 @@
+[root@lithspf1 ~]# su - textpass
+Last login: Wed Oct  2 10:10:35 CEST 2019 on pts/0
+[textpass@lithspf1 ~]$ /usr/TextPass/bin/spf_db_setup.pl
+Read MYSQL user-name, password and db-name from hostname and common config files in /usr/TextPass/etc/:
+No common config file found.
+
+    ===============================================================================================
+
+        ***GUIDE TO THIS SCRIPT***
+
+        This script is responsible for setting up new MySQL Cluster SQL nodes.
+
+        SQL node creation will involve some or all of the following actions, depending upon the
+        state of the SQL node:
+
+        - The creation of the SPF database (created the first time this script is ever executed).
+
+        - The creation and population of the SPF base tables (created once per cluster i.e. the first
+          time this script is ever executed).
+
+        - The creation of SPF views (created on each SQL node i.e. the first time this script is
+          executed against a particular SQL node)
+
+        - The creation of a user account on the new SQL node, which will also specify the node from
+          which that user will connect. If there will be N SPF processes running on several nodes,
+          all with the same user and each of which needs to connect to this SQL node, then this script
+          will need to be executed N times).
+
+        - The creation of a user account for replication on the new SQL node.
+
+        - Replication user should be specified in the host config file for Master node.
+
+        - Replication user should be same on both Master and Slave nodes.
+
+    ===============================================================================================
+
+
+Continue? (y/n): y
+Enter database name (empty for default 'spf'):
+
+***** Setting up SQL nodes *****
+
+Obtaining root login for SQL node '10.183.141.49'...
+Enter root password: lokal$
+Creating undo file, this could take a few minutes.   Unable to create logfile group: spf_logfile_grp
+Creating undo file, this could take a few minutes..  Unable to create logfile group: spf_logfile_grp
+
+Add replication users for SQL node '10.183.141.49'? (y/n): y
+User found with the replication grants.
+User password is not checked for validity.
+         <replication host="10.183.141.49" user="SPFrepluser" password="SPFrepluser123" />
+
+Creating undo file, this could take a few minutes... DBD::mysql::db do failed: Failed to create UNDOFILE at /usr/TextPass/lib/spf_slm_setup.pm line 304, <STDIN> line 4.
+DBD::mysql::db do failed: Failed to create UNDOFILE at /usr/TextPass/lib/spf_slm_setup.pm line 304, <STDIN> line 4.
+Creating undo file, this could take a few minutes..
+Creating undo file, this could take a few minutes.

@@ -1,0 +1,37 @@
+***MGR node***
+MGR
+STV (all STV, TextPassSTVstvnode TextPassSTVmgrnode TextPassSTVpollernode)
+STV DB
+BAT
+MySQL
+
+***TE nodes***
+RTR (textpass)
+HUB
+AMS
+FAF
+IIW
+PBC
+Qcli
+STV (only for poller node, TextPassSTVpollernode)
+ 
+***LGP node***
+MySQL
+LGP
+LGP DB
+STV (only for poller node, TextPassSTVpollernode)
+
+***SE nodes***
+SPF
+Mysql-Cluster
+STVpollernode
+XSARP
+XSBWL
+XSCPY
+XSDIL
+XSFWD
+XSMLC
+XSMOD
+XSSIG
+XSTIE
+XSINT

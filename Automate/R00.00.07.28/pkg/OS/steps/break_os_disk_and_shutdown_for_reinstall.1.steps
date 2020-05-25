@@ -1,0 +1,17 @@
+###############################################################################
+# The steps configuration file will do checks to break the OS disk, store the
+# state and shutdown. This means this step may only be used in case the
+# OS needs a fresh installation (e.g. RH5 to RH6), not in case of a
+# kernel patch update.
+# (c) Copyright 2014-2015 NewNet
+# $Id: break_os_disk_and_shutdown_for_reinstall.1.steps,v 1.1 2015/07/10 09:00:24 fkok Exp $
+###############################################################################
+
+# Do some pre-checks before the actual upgrade
+precheck                OS
+manualy_break_os_disk   OS 60
+shutdown_machine        store_state
+
+#
+# Make sure the new RHEL kick-start is installed during next reboot
+#

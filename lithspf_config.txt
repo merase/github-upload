@@ -1,0 +1,78 @@
+<!--
+    Sample for the host-specific configuration file for the TextPass SPF
+    (c) Copyright 2009-2013 NewNet
+
+    $Id: hostname_config.txt_template_spf,v 1.32 2013/01/14 07:22:45 n2shar10 Exp $
+    Date		Change History
+    05-Oct-2018		Kishore (Newnet)
+-->
+
+<tpconfig
+    ipaddress="10.45.232.37"
+    runmgrdprocess="true"
+    runtextpassprocess="false"
+    runtpfclientprocess="true"
+    runspfprocess="true"
+    runxsprocess="true"
+
+    networkdiscoverymulticastaddress="239.255.130.192"
+    networkdiscoverynetworkaddress="10.13.130.192"
+    networkdiscoverynetworkmask="255.255.255.240"
+
+  >
+
+<!--
+  <xsdb
+    dbname="spf"
+    username="SPFuser"
+    password="SPFuser123"
+    usedatabase='true'
+  >
+   <server host="10.45.232.39" port="3306" />
+  </xsdb>
+-->
+
+  <!-- SPF configuration -->
+    <spf
+      runspfcoreprocess='true'
+      runspfsmsprocess='false'
+      runspfbulkprocess='false'
+    >
+
+  <!-- SPF Core configuration -->
+
+<spfcore
+	slavecluster="true"
+	replicationmonitoring="true"
+	primaryhost="10.45.232.37"
+	secondaryhost="10.45.232.38"
+	>
+	<db host="10.45.232.37" user="SPFuser" password="SPFuser123" />
+	<db host="10.45.232.38" user="SPFuser" password="SPFuser123" />
+
+	<replication host="10.45.232.5" user="SPFrepluser" password="SPFrepluser123"/>
+	<replication host="10.45.232.6" user="SPFrepluser" password="SPFrepluser123"/>
+</spfcore>
+
+    </spf>
+  <!-- End of SPF configuration -->
+
+
+    <fxferfile
+       localpath="/usr/TextPass/etc/common_config.txt"
+       serverpath="/usr/TextPass/etc/common_config.txt"
+       validate="/usr/TextPass/bin/tp_config --validatecommonconfig SERVERFILE"
+    />
+    <fxferfile
+        localpath="/usr/TextPass/etc/MGRdata.xml.gz"
+        serverpath="/usr/TextPass/etc/MGRdata.xml.10.45.232.37.gz"
+    />
+
+    <trapreceiver ipaddress="127.0.0.1" udpport="11173" >
+        <blacklist>
+            <fxfer trap="clientSessionStarted"/>
+        </blacklist>
+    </trapreceiver>
+
+</tpconfig>
+

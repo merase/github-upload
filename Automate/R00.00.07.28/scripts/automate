@@ -1,0 +1,905 @@
+#!/bin/sh
+: <<=cut
+=script
+The main automation script, which will initialize the library file, read
+configuration files and continues the steps to be executed. For more information
+on the command line options see documentation, see below and/or use automate -?.
+=version    $Id: automate,v 1.78 2018/06/08 11:39:40 fkok Exp $
+=author     Frank.Kok@newnet.com
+=cut
+
+function show_usage_and_exit() {
+    local ec="$1"       # (M) The exit code to use
+
+    cat << EOF
+This script will automate installation/upgrade steps for all types of elements.
+
+Options for operational use:
+-?            | --help                 : Show this help usage
+-s<step_file> | --stepcfg=<step_file>  : (O) The steps file to use
+-d<data_file> | --datacfg=<data_file>  : (O) The data file with the default configuration 
+-l            | --list                 : Show all steps planned for this node.
+-b            | --brief                : Same as --list but shows extra brief information if available.
+-p            | --package              : Show all packages, for debugging, but also shows collected version info
+-t            | --terminate            : Terminate any running automate (e.g. the one started without keyboard console attached)
+--restart                              : Restart the process at step 1
+--finish                               : Finishes automation. Make sure nothing is done at a next run/reboot. Only needed if last not reached and a disable is wanted.
+--sw_iso=<iso sect>                    : Optionally refer to an [iso/name] section which can be used in the steps as <iso>. If omitted then NMM-SW or last stored will be used.
+--os_iso=<iso sect>                    : Optionally refer to an [iso/name] section which can be used in the steps as <iso>. If omitted then it is <empty> or last stored will be used.
+--changelog=[automate|baseline]        : Show the changelog from either automate (default) or basline.
+
+Options for influencing step logic:
+--skip                                 : Skip the current active step and continue with the next in line. You cannot skip if still substeps queued.
+--skip_sub                             : Skip the current substep and continue with the next substeps in line. Works only on substeps.
+--exec=<list of steps>                 : List of steps to execute use #,#,#, use a u# to call undo. Experienced user only. This will change the current list (in case of continue as well)
+--step=<single step number/name>       : Executes a single step without changing the current list. The step should be a number or names as in the step config file could be used. 
+--doc=<single step number/name>        : Creates readable help for specific step. The step should be a number or names as in the step config file could be used. 
+--doc=steps                            : Instruction to generate all step in a file (will be shown).
+
+Less frequently used options (know what and why you want them):
+--if_usr                               : Creates (if on OAM) and tests (others) access to the interface user towards the manager. MGR should be running. This can the configured user in the data file or an internal default. Remark: tp_shell is needed to do the full check and that will only be available during the installation/upgrade. In other words this won't work on all systems, it is just helper option once it failed (then tp_shell should have been installed).
+--ssh                                  : Will execute the check SSH step. starts the server and see if all reachable. Useful in case nodes added later.
+--fxfer                                : Will execute the verify File-Transfer step. Useful in case not all file transfer steps were executed in time.
+--instance=<list of instances>         : Only installs specific instances, skip generic. * is default which installs generic and all instances.
+--clean                                : Will cleanup old automate-boot-data directory. Normally only needed if running on test systems.
+--store=<store_file>                   : Identifies a stores file to use (iso of auto discover).
+--make                                 : Makes a storage file without executing steps.
+--serial                               : Retrieved the serial number for this machine , use for matching the node in: [node]serial='<serial>'
+--save_logs                            : Saves all available logs, for later investigation. This is an additional request, if the
+tool exist abnormally then logs are collected automatically (unless disabled in config file).
+--clear_krn_ver                        : Clear the stored kernel version to overrule safety check.
+--clear_rebooted                       : Clear the reboted flag, just in case needed after many reboots.
+                                        
+Options for automate, use with care! :
+--console                              : Send screen output to console iso screen (used by auto continue). Only to be used by auto-start script!
+--kernel                               : Called to update kernel should be in runlevel 1. Only to be used by auto-start script and <= RHEL6!
+--collect_updates_in=<dir>             : Check if there are any updates and if so collect them in the given directory.
+--copy_data                            : Tries to locate data to be copied from e.g. USB or mounted ILO image. Normally this is done once at first start and never again. Use this option
+                                         to try it again. If the download dir is found then the current config <Data*>.cfg, <Step*>.cfg and ISO might be overwritten!
+
+Options for (developer) debugging:
+--call                                 : Gives additional info on the external script file being called.
+--debug                                : Show available debug info to stdout. Also put all other logging to stdout
+--keep_tmp                             : Keep the use temporary files for examining if needed.
+--no_log                               : Disable logging (not icw --debug)
+--no_help                              : Disable help on failure (e.g. in case thatis iritationg or fails itself)
+--manual                               : Allows to manually select a node iso using the serial number matching.
+--func=<func to execute>               : Executes a specific function, for experienced users only
+--fpars=<pars>                         : The parameters to pass to the func (between '' separated by spaces)
+--interactive                          : Goes into a interactive mode where step can be chosen after each other until a failure occurs, this could safe init-time in some cases.
+EOF
+    exit $ec
+}
+
+# Check if the current directory is still valid
+if [ ! -d "$(pwd 2>/dev/null)" ]; then
+    echo "The current working directory is not valid."
+    exit 1
+fi
+
+#Check whether script is being run as root
+if [[ $EUID -ne 0 ]]; then
+   echo "This tool must be run as root" 1>&2
+   exit 1
+fi
+
+# Check command line options
+opt_info=`getopt -o ?s:d:lbpt --long help,stepcfg:,datacfg:,list,brief,package,make,serial,save_logs,clear_krn_ver,clear_rebooted,sw_iso:,os_iso:,terminate,debug::,keep_tmp,no_log,no_doc,manual,store:,func:,fpars:,step:,doc::,exec:,restart,finish,skip,skip_sub,clean,call,copy_data,if_usr,ssh,fxfer,console,kernel,instance:,collect_updates_in:,changelog::,interactive:: -- "$@"`
+if [ $? != 0 ]; then 
+    echo "Wrong usage, terminating..."
+    show_usage_and_exit 1
+fi
+
+# Some global variable
+readonly def_IFS=$IFS       # Safe the default IFS setting
+readonly AUT_store_script='.automate_storage'
+readonly AUT_pref_store_dir='/var/Automate/etc'
+# The order of the directories is important and should not be changed without thoughts
+readonly AUT_store_dirs="/backup_data/tpbackup $AUT_pref_store_dir"
+readonly AUT_pref_store_file="$AUT_pref_store_dir/$AUT_store_script"
+
+
+AUT_store_file=''
+
+# These are the default variable in use for command, check later.
+# Some global some local
+ FLG_help_on_fail=1  # Show help on step in case of failure (by default enabled.
+  FLG_log_enabled=1  # Enables or disables logging 
+  FLG_dbg_enabled=0  # Enables or disables debugging
+      FLG_dbg_par='' # The optional parameter given to debug could be '<step#>,<mod>', '<step#>' or '<mod>,<mod>' steps and mods are 'anded'. 
+                     # A step has priority over a module. Do not use step if all msg of specific module should be debugged.
+      FLG_dbg_mod='' # The step currently being debugged. The future module name (e.g. entry,init).
+     FLG_dbg_step='' # The step currently being debugged
+ FLG_cons_enabled=0  # Enables the console output (iso screen)
+ FLG_kern_enabled=0  # Enables the kernel update mode (only to be called under runlevel 1)
+ FLG_call_enabled=0  # Enables the script calling output
+      FLG_man_sel=0  # Allow a manual selection of a node iso using the system serial number
+     FLG_keep_tmp=0  # Enables or disables the keeping of temporary files/map data. Default 0, in case of log_exit switched on to keep map data.
+FLG_log_to_stderr=0  # Make sure log_screen function is logged to stderr. Only used internally at the moment.
+  FLG_interactive=0  # Indicate interactive mode is active.
+     FLG_document=0  # Indicate auto-document is requested.
+
+flag_list=0          # 0 = none, 1 = normal list, 2 = list with brief info
+flag_pkg=0
+flag_make=0
+flag_term=0
+flag_special=0
+flag_clean=0
+flag_skip=0
+flag_skip_sub=0
+flag_finish=0
+flag_cpy_data=0
+flag_if_usr=0
+flag_serial=0
+flag_save_logs=0
+flag_clear_krn_ver=0
+flag_clear_rebooted=0
+flag_changelog=0
+par_interactive=''
+
+single_step=''
+document_step=''
+screen_msg=''
+update_dir=''
+changelog=''
+
+# Command line parameter overule any info found in store file!
+eval set -- "$opt_info"
+while true; do
+  case "$1" in
+    '-?' | --help   ) show_usage_and_exit; shift   ;;
+    -s | --stepcfg  ) par_step_file="$2" ; shift 2 ;;
+    -d | --datacfg  ) par_data_file="$2" ; shift 2 ;;
+    -l | --list     ) flag_list=1        ; shift   ;;
+    -b | --brief    ) flag_list=2        ; shift   ;;
+    -p | --package  ) flag_pkg=1         ; shift   ;;
+    -t | --terminate) flag_term=1        ; shift   ;; 
+
+    --no_log        ) FLG_log_enabled=0  ; shift   ;;
+    --no_doc        ) FLG_help_on_fail=0 ; shift   ;;
+    --debug         ) FLG_dbg_enabled=1  
+                      FLG_dbg_par="$2"   ; shift 2 ;;
+    --call          ) FLG_call_enabled=1 ; shift   ;;
+    --console       ) FLG_cons_enabled=1 ; shift   ;;
+    --kernel        ) FLG_kern_enabled=1 ; shift   ;;
+
+    --instance      ) par_instance="$2"  ; shift 2 ;;
+    --store         ) par_store_file="$2"; shift 2 ;;
+    --exec          ) par_exec_steps="$2"; shift 2 ;;
+    --func          ) par_func="$2"      ; shift 2 ;;
+    --fpars         ) par_fpars="$2"     ; shift 2 ;;
+
+    --manual        ) FLG_man_sel=1      ; shift   ;;
+    --keep_tmp      ) FLG_keep_tmp=1     ; shift   ;;
+    --restart       ) par_exec_steps='*' ; shift   ;;
+    --skip          ) flag_skip=1        ; shift   ;;
+    --skip_sub      ) flag_skip_sub=1    ; shift   ;;
+    --finish        ) flag_finish=1      ; shift   ;;
+    --copy_data     ) flag_cpy_data=1    ; shift   ;;
+
+
+    --sw_iso        ) par_sel_sw_iso="$2"; shift 2 ;;
+    --os_iso        ) par_sel_os_iso="$2"; shift 2 ;;
+    
+    --changelog     ) flag_changelog=1; changelog="$2"; shift 2 ;; 
+
+    --if_usr        ) flag_if_usr=1
+                       screen_msg='Check interface mgr user'  ; ((flag_special++)); shift   ;;
+    --make          ) flag_make=1
+                       screen_msg='Making empty storage file' ; ((flag_special++)); shift   ;;
+    --clean         ) flag_clean=1                            ; ((flag_special++)); shift
+                       screen_msg='Cleaning up automatic boot data files'                   ;;
+    --ssh           ) single_step='check_SSH-Peers'
+                       screen_msg='Checking SSH-Peers'        ; ((flag_special++)); shift   ;;
+    --fxfer         ) single_step='verify_File-Transfer TextPass start'
+                       screen_msg='Verifying File-Transfer'   ; ((flag_special++)); shift   ;;
+    --step          ) single_step="$2"                        ; ((flag_special++)); shift 2
+                       screen_msg="Requested Single-Step : $single_step"                    ;;
+    --doc           ) document_step="$2"; FLG_document=1      ; ((flag_special++)); shift 2
+                       screen_msg="Document Single-Step : $document_step"                   ;;
+    --serial        ) flag_serial=1                           ; ((flag_special++)); shift
+                       screen_msg='Retrieve this nodes serial number'                       ;;
+    --save_logs     ) flag_save_logs=1                        ; ((flag_special++)); shift
+                       screen_msg='Save available logs'                                     ;;
+    --clear_krn_ver ) flag_clear_krn_ver=1                    ; ((flag_special++)); shift
+                       screen_msg='Clearing previous kernel version'                        ;;
+    --clear_rebooted) flag_clear_rebooted=1                   ; ((flag_special++)); shift
+                       screen_msg='Clearing rebooted counter'                               ;;
+    --interactive   ) par_interactive="$2"; FLG_interactive=1
+                      par_interactive="${par_interactive:-user}"
+                       screen_msg="Interactive $par_interactive Mode"
+                                  [ "$document_step" == '' ] && ((flag_special++)); shift 2 ;;
+
+    --collect_updates_in ) update_dir="$2"                                        ; shift 2 ;;
+    --              ) shift;               break   ;;
+    *               )                      break   ;;
+  esac
+done
+
+#
+# Extra processing for some parameters. This to keep the above case as 'nice'
+# as possible.
+#
+if [ "$FLG_dbg_par" != '' ]; then
+    FLG_dbg_step="$(echo -n "$FLG_dbg_par" | tr ',' '\n' | grep '^[0-9]*$' | tr '\n' ',')"
+    FLG_dbg_mod="$( echo -n "$FLG_dbg_par" | tr ',' '\n' | grep -v '^[0-9]*$' | tr '\n' ',')"
+fi
+
+#
+# We have to discover the library path which cannot be done in a helper script
+#
+AUT_full_exec=$(readlink -f $0)         # Get absolute path
+AUT_exec_name=$(basename $0)
+AUT_start_exec=$0
+exec_path=`dirname $AUT_full_exec`
+exp_dir='scripts'
+flt_dir=`echo "$exec_path" | egrep -o "/$exp_dir\$"`
+if [ "$flt_dir" != "/$exp_dir" ]; then
+	echo "Cannot locate $exp_dir directory, did $0 move to another location?"
+    exit 2
+fi
+
+. $exec_path/lib/init_lib.sh $exec_path 
+
+set_log_file "pre-start"
+
+#
+# Show change log if requested
+#
+if [ $flag_changelog != 0 ]; then
+    changelog=${changelog:-automate}
+    clog_file="$vardir/hlp/changelog_$changelog.txt"
+    if [ ! -r "$clog_file" ]; then
+        echo  "Did not find changelog file. 
+Incorrect parameter for --changelog=$changelog or package not installed?"
+        show_usage_and_exit 1
+    fi
+    more "$clog_file"
+    exit 0
+fi
+
+#
+# Should we kill any other automate tool running, exit aft that
+#
+if [ $flag_term != 0 ]; then
+    log_info "Terminating running Automate tool: $0 $*"
+    kill_other_automate_tools
+    exit 0
+fi
+
+#
+# Early check of mutual exclusive skip and skip_sub (to do fast checking)
+# Separate check to give better feedback.
+#
+if [ "$flag_skip" == '1' -a "$flag_skip_sub" == '1' ]; then
+    log_exit "The --skip and --skip_sub are mutual exclusive, please remove the proper one."
+fi
+
+#
+# Run level retrieval and early checks
+# RH7 does not support runlevels and I seem unable to poll the target
+# during startup. SO RH7 ($CMD_systemctl) does not allow for kernel par
+#
+if [ "$CMD_systemctl" != ''  ]; then 
+    if [ "$FLG_kern_enabled" != 0 ]; then
+        log_exit "Kernel mode feature not supported for RHEL7 and beyond."
+    fi
+else
+    cur_runlevel=$(runlevel 2>/dev/null | cut -d ' ' -f 2)
+    case "$cur_runlevel" in
+        '1'|'s'|'S')
+            if [ "$FLG_kern_enabled" == 0 ]; then
+                log_exit "Automate may not run at runlevel '$cur_runlevel' unless --kernel is given."
+            fi
+            ;;
+        '3'|'4'|'5')
+            if [ "$FLG_kern_enabled" != 0 ]; then
+                log_exit "Not running in 'single-user mode' while --kernel is given."
+            fi
+            ;;
+        *) log_exit "Automate may not run at runlevel '$cur_runlevel'."; ;;
+    esac
+fi
+
+log_info "Starting ($cur_runlevel): $0 $*"
+
+#
+# Document without parameter can be handled directly no use to init all
+#
+if [ $FLG_document == 1 -a "$document_step" == '' ]; then
+    if [ -r "$hlp_auto_doc" ]; then
+        cat "$hlp_auto_doc" | grep -v '^='
+        exit 0
+    else
+        log_exit "Did not find on auto-documentation help text
+automate installation  incomplete, 
+file missing: '$hlp_auto_doc'
+remove option --doc to continue." 
+    fi
+fi
+
+#
+# Should we check for update. Always return the outcome.
+#
+if [ "$update_dir" != '' ]; then
+    # This will look for the updates and copy them (if fitting) to the give dir)
+    # There will not be any output as the caller may decide what todo.
+    # Internally output is written to $update_chk file.
+    func copy_boot_data upgrade "$update_dir"
+    exit 0
+fi
+
+#
+# If copy data is requested then remove the current and keep history (so rotate)
+if [ $flag_cpy_data != 0 ]; then
+    log_screen ""
+    log_screen $LOG_sep
+    log_screen "Trying to locate and copy boot data upon request."
+    rotate_files "$boot_copied"
+fi
+func copy_boot_data
+read_current_state $par_store_file
+
+#
+# This is a safety stop to spot contiusly reboots. If more then 5
+# continuous reboots are spotted then it will stop.
+#
+if [ $flag_clear_rebooted != 0 ]; then
+    STR_rebooted=0
+    store_current_state
+fi
+if [ "$STR_rebooted" != '' ] && [ "$STR_rebooted" -ge 3 ]; then
+    log_screen $LOG_sep
+    log_screen "Spotted potentially $STR_rebooted consecutive reboots."
+    log_screen "Safety stop!"
+    log_screen "Use automate --clear_rebooted if you wish to reset."
+    exit 0
+fi
+
+#
+# If there is a previous kernel version stored then it may not
+# match our current. If so then this might have been a rollback and
+# we bailout.
+#
+if [ $flag_clear_krn_ver != 0 ]; then
+    STR_prev_kernel_version=''
+    store_current_state
+fi
+if [ "$STR_prev_kernel_version" != '' ] && [ "$STR_prev_kernel_version" == "$(uname -r)" ]; then
+    log_screen $LOG_sep
+    log_screen "Expected a change in kernel version (still $STR_prev_kernel_version)"
+    log_screen "Was this a Rollback? Stopping automate as status is unclear."
+    log_screen "Use automate --clear_krn_ver if you wish to overrule."
+    log_screen $LOG_sep
+    exit 0
+fi
+
+#
+# It is enough to check FLG_kern_enabled because made already sure we are on
+# runlevel 1.
+#
+if [ $FLG_kern_enabled != 0 ]; then
+    if [ "$STR_shutdown_info" != 'for_kernel_update' ]; then
+        log_info "No kernel update requested, stopping without action."
+        exit 0
+    fi
+    screen_msg="Kernel Patch Update requested, proceeding."
+fi
+
+# 
+# This bailout is for the console call, which has no use to delay, 
+# nor should give extra options.
+#
+if [  $FLG_cons_enabled != 0 -a "$STR_exec_steps" == '' ]; then
+    if [ "$STR_shutdown_info" != '' ]; then
+        unset STR_shutdown_info
+        store_current_state
+    fi
+    log_info "Console mode: All finished, nothing to do at the moment."
+    # Do not log anything to the screen, just return exit code 63
+    exit 63
+fi
+
+log_screen ""
+log_screen $LOG_sep
+
+#
+# Should we finish the steps in progress.
+#
+[ $flag_finish != 0 ] && handle_cmd_and_exit 'finish'
+
+if [ "$flag_special" -gt '1' ]; then
+    log_exit "More then one special command given (e.g. ssh, fxfer)"
+fi
+[[ "$screen_msg" != '' ]] && log_screen "== $screen_msg"
+
+#
+# Retrieve and show serial number if requested
+#
+if [ $flag_serial == 1 ]; then
+    serial_number=$(get_systen_var $SVAR_serial_number)
+    if [ "$serial_number" == '' ]; then
+        log_screen '== Could not retrieve serial number!'
+    else
+        log_screen "== Serial number is : '$serial_number'"
+    fi
+    exit 0
+fi
+
+#
+# Save all the available logs
+#
+if [ $flag_save_logs == 1 ]; then
+    save_available_logs 'user'
+    if [ $? != 0 ]; then
+        log_screen '== Failed to save available logs!'
+    else
+        log_screen "== Available log are save in '$LOG_saved'"
+    fi
+    exit 0
+fi
+
+#
+# Do cleanup of data files after lib, but before reading files (which do not 
+# have to be set).
+#
+if [ $flag_clean == 1 ]; then
+    func store_boot_data clean
+    clear_special_logs
+    exit 0
+fi
+
+#
+# See if new parameters are given like step/data/exec.
+#
+changed=0
+if [ "$par_data_file" != '' ]; then
+    if [ ! -r "$par_data_file" ]; then
+        log_exit "Data file '$par_data_file' cannot be opened."
+    fi
+    STR_data_file="$(cd "$(dirname "$par_data_file")"; pwd)/$(basename "$par_data_file")"
+    STR_data_file_md5=$(calc_md5 "$STR_data_file" out)
+    changed=1
+fi
+if [ "$par_step_file" != '' ]; then
+    if [ ! -r "$par_step_file" ]; then
+        log_exit "Step file '$par_step_file' cannot be opened."
+    fi
+    STR_step_file="$(cd "$(dirname "$par_step_file")"; pwd)/$(basename "$par_step_file")"
+    STR_step_file_md5=$(calc_md5 "$STR_step_file" out)
+    changed=1
+fi
+if [ $changed != 0 ]; then
+    if [ $FLG_cons_enabled != 0 ]; then # ouch this should not have happened
+        log_exit "Step and/or data file changed during console installation!"
+    fi
+    STR_exec_steps='?'          # Make sure selection list is shown, unless overules below
+fi
+[ "$par_exec_steps" != '' ] &&  handle_iact_cmd "exec $par_exec_steps" exit_on_fail
+
+#
+# Check skip step requested
+#
+if [ "$flag_skip" == 1 -a "$STR_exec_steps" != '' -a "$STR_exec_steps" != '*' ]; then
+    if [ "$STR_prevent_skip" == '1' ]; then
+        log_exit "== Skip functionality is disabled as it is not allowed at this point!"
+    elif [ "$STR_step_depth" != '' ] && [ "$STR_step_depth" -gt '1' ]; then
+        log_exit "== Cannot Skip main steps while sub-steps pending!, use --skip_sub first."
+    else
+        step_skipped="$(echo -n "$STR_exec_steps" | cut -d',' -f 1)"
+        STR_exec_steps="$(echo -n "$STR_exec_steps" | cut -d',' -f 2-)"
+        log_screen "== Skip current step ($step_skipped), continue with steps: '$(get_compact_seq "$STR_exec_steps")'"
+    fi
+fi
+
+#
+# Decide on instance configuration (preparation).
+#
+if [ "$par_instance" != '' ]; then
+    if [ "$(echo -n "$par_instance" | egrep -o '^(\*|[0-9](,[0-9]){0,9})$')" == '' ]; then
+        log_exit "Wrong instance parameter ($par_instance). Use only * or max 10 [0-9] separated by comma."
+    fi
+    log_screen "== Instances to install has been manually set to: '$par_instance'"
+    STR_instances="$par_instance"    
+fi
+STR_instances=${STR_instances:-*}
+
+#
+# Do we need to skip the next sub-step if set (STR_step_queue_busy)
+#
+if [ "$flag_skip_sub" == 1 -a "$STR_step_queue_busy" != '' ]; then
+    if [ "$STR_prevent_skip" == '1' ]; then
+        log_exit "== Skip-Sub functionality is disabled as it is not allowed at this point!"
+    else        
+        log_screen "== Skip current sub step $STR_step_queue_busy"
+        log_screen "== Continuing with the other queued steps."
+        AUT_step_queue_skipped="$STR_step_queue_busy"
+        STR_step_queue_busy=''
+    fi
+fi
+
+#
+# Check mandatory parameters
+#
+err_str=''
+if [ "$STR_data_file" == '' ]; then
+    err_str="Missing mandatory data file"
+elif [ "$STR_step_file" == '' ]; then
+    err_str="Missing mandatory steps file"
+fi
+if [ "$err_str" != '' ]; then
+    if [ $FLG_cons_enabled != 0 ]; then 
+        log_screen "== $AUT_exec_name: No configuration files, nothing to do.$nl$LOG_sep"
+        exit 0  # Screen we don't want to wait
+    fi
+    log_exit "$err_str"
+fi
+
+if [ $flag_make == 1 ]; then    # Don;t use old values in case of make
+    unset STR_sel_sw_iso
+    unset STR_sel_os_iso
+fi
+if [ "$par_sel_sw_iso" != '' ]; then    # Should be set before reading steps file.
+    log_info "Setting the SW ISO to section '$par_sel_sw_iso'."
+    STR_sel_sw_iso=$par_sel_sw_iso
+fi
+if [ "$par_sel_os_iso" != '' ]; then    # Should be set before reading steps file.
+    log_info "Setting the OS ISO to section '$par_sel_os_iso'."
+    STR_sel_os_iso=$par_sel_os_iso
+fi
+
+#
+# Make a new storage file, done after the steps are selected
+#
+if [ $flag_make == 1 ]; then
+    # Filter only the needed variables, the rest should be cleaned.
+    tmp_data_file="$STR_data_file"
+    tmp_step_file="$STR_step_file"
+    tmp_sel_sw_iso="$STR_sel_sw_iso"
+    tmp_sel_os_iso="$STR_sel_os_iso"
+    for str_var in $(set | grep 'STR_*' | cut -d '=' -f 1 | tr '\n' ' '); do
+        unset $str_var
+    done
+    STR_data_file="$tmp_data_file"
+    STR_step_file="$tmp_step_file"
+    STR_exec_steps='*'
+    STR_sel_sw_iso="${tmp_sel_sw_iso:-$AUT_def_sw_iso}"
+    STR_sel_os_iso="$tmp_sel_os_iso"
+    store_current_state
+    tmp_sel_os_iso=${tmp_sel_os_iso:-"<none>"}
+    log_screen "=  Data File : $STR_data_file"
+    log_screen "=  Step File : $STR_step_file"
+    log_screen "=  SW_ISO    : [iso/$STR_sel_sw_iso]"
+    log_screen "=  OS_ISO    : [iso/$tmp_sel_os_iso]"
+    log_screen "== Created storage file: $AUT_store_file$nl$LOG_sep"
+    exit 0
+fi
+
+#
+# In case of restart, clear versions before initializing config
+if [ "$STR_exec_steps" == '*' ]; then
+    for ver_pkg in $GEN_our_pkgs_sp; do
+        unset "STR_ver_$ver_pkg"
+    done
+    unset STR_os_hop_upgrade
+fi
+
+#
+# Special cleanup of variables
+#
+unset STR_selected_node         # In case somebody removed from data but stil; in store.
+
+#
+# Now initialize all the package available package information. As well as the
+# require module.
+#
+init_config
+
+# 
+# Make sure we have proper data files, before continuing
+#
+read_data_file $STR_data_file
+
+#
+# Now that we have the configuration and the data setting we can initialize
+# the require module.
+#
+init_require
+
+#
+# To Process the step we need the data and the require info. So do it after them.
+#
+read_step_file $STR_step_file
+
+#
+# Show the list with step before process, but after reading the file
+#
+if [ $flag_list == 1 ]; then
+    show_steps_to_execute
+    exit 0
+elif [ $flag_list == 2 ]; then
+    show_steps_to_execute '' 'brief'
+    exit 0
+fi
+
+translated_step=''
+: <<=cut
+=func_int
+Translate a given step number into a single step (if possible)
+=set STEP_type
+The type will be set correctly, it will be defaulted to $step_type_def.
+=set translated_step
+This variable will hold the new single step.
+Empty it if could not be translate. If the step was a string it is returned
+as is.
+=set step_num
+The fond stp number or 0 if a name was given.
+=cut
+function translate_into_single_step() {
+    local s_step="$1" # (M) Any given single step
+
+    s_step="$(echo -n "$s_step" | sed "$SED_del_spaces_tabs" | sed "$SED_del_preced_sptb" | sed "$SED_del_trail_sptbtr")"
+    translated_step="$s_step"
+    step_num=0
+    STEP_type=$step_type_def
+    if [ "$(echo -n "$s_step" | $CMD_ogrep '^(u|)[0-9]+')" == "$s_step" ]; then
+        if [ "${s_step:0:1}" == 'u' ]; then 
+            s_step=${s_step:1}
+            STEP_type=$step_type_undo
+        fi
+        local s_num=$s_step
+        s_step=${AUT_step[$s_num]}
+        if [ "$s_step" == '' ]; then
+            [ $FLG_interactive == 0  ] &&
+                log_exit "$s_num did not translate into a step, check number using: $AUT_exec_name --list" ||
+                log_screen "$s_num did not translate into a step, check number using 'list' command"
+        elif [ $FLG_interactive == 0 ]; then
+            log_screen "== Translated step $s_num into : $s_step"
+            reset_state_data
+        fi
+        step_num=$s_num
+    # Special case if step starts with u:<step> then set the STEP type to undo
+    elif [ "${s_step:0:2}" == "u:" ]; then
+        s_step=${s_step:2}
+        STEP_type=$step_type_undo
+    fi
+    translated_step="$s_step"
+
+    if [ $FLG_interactive != 0 ]; then
+        if [ "$STR_queued_for_step" != "$step_num" ] ||
+        [ "$STR_queued_for_step" == '0'      ] ||
+        [ "$STR_queued_for_step" == '999'    ]; then   # A different step so make sure it does not continue
+            STR_queued_for_step=''
+            reset_state_data
+        fi
+    fi
+}
+
+# 
+# Check to see if a single step number has to be translated (after reading file)
+#
+if [ "$single_step" != '' ]; then
+    translate_into_single_step "$single_step"
+    single_step="$translated_step"
+fi
+
+#
+# Calc steps if needed
+#
+run_type='Continuing'
+if [ $FLG_interactive != 0 ]; then
+    run_type='Interactive'
+elif [ $flag_special != 0 ]; then
+    run_type='Special'
+elif [ "$STR_shutdown_info" == 'store_state' ]; then
+    STR_os_hop_upgrade='1'      # An OS hop was executed, keep the info
+    unset STR_shutdown_info
+    if [ "$AUT_shutdown_store_state_step" != '' ]; then
+        start_step=$AUT_shutdown_store_state_step
+        ((start_step++))
+        STR_exec_steps=`seq -s',' $start_step ${#AUT_step[@]}`
+        run_type='Continuing (OS installed, recalc)'
+    else
+        run_type='Continuing (OS installed)'
+    fi
+elif [ "$STR_shutdown_info" == 'for_kernel_update' ]; then
+    unset STR_shutdown_info
+    run_type='Continuing (kernel update)'
+elif [ "$STR_exec_steps" == '' ]; then
+    run_type="Continuing (finished)"
+elif [ "$STR_exec_steps" == '*' ]; then   # select all in order used during autoboot
+    STR_exec_steps=`seq -s',' 1 ${#AUT_step[@]}`
+    run_type='Starting (initial)'
+elif [ "$STR_exec_steps" == '?' ]; then # Make a user selection
+    show_steps_to_execute 'select_start'
+    run_type='Starting'
+fi
+
+# 
+# Check to see if a document step number has to be translated (after reading file)
+# 0 means current step. So after the exec_steps recvered.
+#
+[ "$document_step" == '0' ] && document_step="$(echo -n "$STR_exec_steps" | cut -d',' -f1)"
+if [ "$document_step" != '' ]; then
+    translate_into_single_step "$document_step"
+    document_step="$translated_step"
+fi
+
+#
+# Check the interface user on the OAM it could be created if internal and not
+# existing.
+#
+[ $flag_if_usr == 1 ] && handle_cmd_and_exit 'if_usr'
+
+#
+# Extract continuation data of sub steps if any, which be use by steps if they 
+# request to. This is not done always as some step cannot continue.
+#
+extract_continue_state
+
+################################################################################
+# The main functionality start here                                            #
+################################################################################
+
+set_log_file "$dd_host"
+
+[[ "$screen_msg" != '' ]] && log_screen "$LOG_sep"
+
+log_info "Node: $hw_node, host: $dd_host, oam_ip: $dd_oam_ip"
+
+log_screen "Hardware Info   : $HW_prd_name ($HW_srv_type Server)"
+log_screen "This node is    : $hw_node ($hw_sel_type) [$STR_run_type mode]"
+log_screen "Nodes in site   : $dd_all_sects"
+log_screen "Host name       : $dd_host"
+log_screen "IP of OAM LAN   : $dd_oam_ip"
+if [ "$dd_instances" != '' -a "$dd_instances" != '0' ]; then
+    log_screen "Instances       : $dd_instances"
+    # Require a minimum version for full instance support, hard check on that!
+    check_min_version "$GEN_our_pkg_baseline" "R15.7.0.1" "Full instance support:$nl"
+fi
+if [ "$dd_sw_iso_file" != '' ]; then
+    log_screen "Using SW-ISO    : $dd_sw_iso_file [$STR_sel_sw_iso]"
+fi
+if [ "$dd_os_iso_file" != '' ]; then
+    log_screen "Using OS-ISO    : $dd_os_iso_file [$STR_sel_os_iso]"
+fi
+
+if [ $FLG_log_enabled ]; then
+    log_screen "Logs written in : $LOG_file"
+fi
+
+#
+# before doing anything we want to collect the current installed version (always)
+#
+start_inprogress_ind
+log_screen "Collect pkg.inf.: " 'n'
+update_install_info get_pkg_version "$INS_col_cur_version"
+refresh_mysql_version
+[ "$IP_TextPass" != '' ] && func TextPass identify_mm_release
+stop_inprogress_ind
+log_screen "finished."
+
+log_screen ""
+
+if [ $flag_pkg == 1 ]; then     # Show the package info before the run
+    show_installable_pkg
+fi
+
+nothing_done=0
+if [ "$par_func" == 'list' ]; then
+    show_funcs
+    nothing_done=1
+elif [ "$par_func" != '' ]; then
+    # One should really know what he is doing 
+    log_screen "Executing: func $par_func $par_fpars" 
+    find_install $par_func              # See if we should call define vars first
+    if [ "$install_ent" != '' ]; then
+        func $par_func define_vars
+    fi
+    func $par_func $par_fpars
+elif [ $FLG_document != 0 -a "$document_step" != '' ]; then
+    # The trick below is not documented on purpose! It is for developement
+    help_what='sup'
+    [ "$FLG_interactive" != 0 ] && help_what='dev'
+    [ "$par_interactive" == 'expert' ] && help_what='dbg'
+
+    # Only document the specific step
+    log_screen $LOG_sep
+    log_screen ""
+    if [ "$document_step" == '' ]; then
+        log_screen "Did not found the step to document."
+    else
+        case "$(get_field 1 "$document_step" ':')" in
+            'all')      # Reserved for future use
+                log_screen "Reserved keyword, nothing processed"
+                ;;
+            'steps')
+                write_doc_for_step_to_execute '' "$(get_field 2- "$document_step" ':')"
+                ;;
+            *)  help_on_step "$document_step" "$help_what"
+                ;;
+        esac
+    fi
+elif [ "$FLG_interactive" != 0 ]; then
+    log_screen $LOG_sep
+    log_screen "Entering Interactive Mode"
+    log_screen $LOG_isep
+    handle_interactive_mode "$par_interactive"
+    log_screen $LOG_isep
+    log_screen "Exited interactive mode"
+    log_screen $LOG_sep
+    log_screen ""
+elif [ "$single_step" != '' ]; then
+    # Only execute a single specific step (num to string translated earlier)
+    log_screen $LOG_sep
+    log_screen ""
+    # Process any new declare requests. This is not the nicest but still
+    # located per package. This approach has to be taken to be sure
+    # the associative array are available at the correct level
+    for decl in $AUT_new_declares; do
+        if [ -x "$decl" ]; then
+            log_screen_info "$decl"
+            . $decl
+        fi
+    done
+    AUT_new_declares=''         
+    execute_step 0 "$single_step"
+elif [ "$STR_exec_steps" != '' ]; then 
+    steps_tbe="$STR_exec_steps"
+    store_current_state
+    
+    log_info "$run_type: $steps_tbe"
+    log_screen "$run_type the automation procedure."
+    log_screen "Steps to be executed : $(get_compact_seq "$STR_exec_steps")"
+    log_screen $LOG_sep
+    log_screen ""
+
+    logsteps_to_execute     # Just store for reference
+
+    execute_all_steps
+    
+    log_info "Succesfuly finished: $steps_tbe" 
+    if [ -e "$LOG_warn_cpy" ]; then  # Finished but with warnings ... show them
+        log_screen ""
+        log_screen $LOG_sep
+        log_screen "${COL_warn}The following warnings occurred, please review them:${COL_def}"
+        log_screen "$(cat $LOG_warn_cpy)"
+        log_screen $LOG_sep
+    fi
+    if [ -e "$LOG_manual_cpy" ]; then # Finshed show the manual step if any
+        log_screen ""
+        log_screen $LOG_sep
+        log_screen "${COL_warn}The following manual tasks need to be done, please execute them:${COL_def}"
+        log_screen "$(cat $LOG_manual_cpy)"
+        log_screen $LOG_sep
+    fi
+    log_screen ""
+    log_screen $LOG_sep
+    log_screen "${COL_ok}Successfully finished all requested steps.${COL_def}"
+    log_screen $LOG_sep
+    log_screen ""
+
+    clear_special_logs
+else
+    log_screen ""
+    log_screen $LOG_sep
+    log_screen "== $AUT_exec_name: Already finished, nothing to do at the moment."
+    log_screen $LOG_sep
+    log_screen ""
+    nothing_done=1
+fi
+
+# Show the package info also after the run if done something
+if [ $flag_pkg == 1 -a $nothing_done == 0 ]; then     
+    show_installable_pkg
+fi
+
+if [ $FLG_cons_enabled == 1 ]; then    # Wait some time if console enabled this because output could be cleared directly
+    wait_time 30 "before exiting the automation tool."
+    log_screen "Exiting the automation tool...                                        "
+fi
+
+sleep 1
+
+exit 0  
+ 

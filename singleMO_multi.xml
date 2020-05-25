@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!DOCTYPE tester SYSTEM "tester.dtd">
+<tester>
+ <responses>
+    <moForwardSmResponse success="1"/>
+    <sendRoutingInfoForSmResponse imsi="20410??????????"  msc="+313130001000"/>
+    <mtForwardSmResponse success="1"
+    unknownSubscriber="0"
+    absentSubscriber="0"
+    timeout="0"
+    />
+</responses>
+ <requests>
+  <defaults networkIndicator="2" smscPointCode="5350"
+   hlrPointCode="5137" mscPointCode="5137" routing="gt"
+   mapVersion="2" smsc="+313130009702" msc="+313130001000"
+   />
+  <moForwardSmRequest name="mofsm" smscPointCode="5350" messageLength="112"
+   mapVersion="2" recipient="+31313868????" originator="+31313123????" loadProfile="momt"
+   />
+ </requests>
+<load>
+<profile name="momt">
+  <coordinates name="T1" timeOffset="0" requestsPerSec="0"/>
+  <coordinates name="T1" timeOffset="10.9" requestsPerSec="0"/>
+  <coordinates name="T1" timeOffset="11" requestsPerSec="100"/>
+  <coordinates name="T2" timeOffset="30" requestsPerSec="100"/>
+  <coordinates name="T3" timeOffset="31" requestsPerSec="0"/>
+  <coordinates name="T5" timeOffset="100000000" requestsPerSec="0"/>
+</profile>
+</load>
+</tester>

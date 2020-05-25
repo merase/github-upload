@@ -1,0 +1,29 @@
+###############################################################################
+# The steps configuration file will post-upgrade the OS from a RH5 to RH6 
+# installation. The steps file should not be called directly but be called by 
+# the 'upgrade' step
+# (c) Copyright 2014-2015 NewNet
+# $Id: post-os-upgrade.1.Linux.RH5_0-RH7_0.steps,v 1.11 2017/06/08 11:45:10 fkok Exp $
+###############################################################################
+
+# Re-install the new MM software
+retrieve_ISO            <sw_iso>
+collect_Automate_files
+configure_Repository    <products>
+install_package         <supporting>
+install_package         <components>
+recover_licenses        TextPass <instances>
+do_Poller               install
+install_Support-Tools   TextPass
+
+# Re-cover the easy data
+recover                 <supporting>
+recover                 TextPass <instances>
+do_Poller               recover
+recover                 <components>
+recover                 OS Cron-Tabs
+
+configure_SNMP-Daemon               # Should this not be located elsewhere (current upgrade doc)
+
+# Update the plan to prevent package upgrades/installs
+update_upg_plan         preinstall

@@ -1,0 +1,16 @@
+###############################################################################
+# The steps configuration file will do checks to break the OS disk and shutdown.
+# This means this step may only be used in a none OS installation case. 
+# E.g. a kernel patch.
+# (c) Copyright 2014-2015 NewNet
+# $Id: break_os_disk_and_shutdown.1.steps,v 1.1 2015/07/13 05:22:31 fkok Exp $
+###############################################################################
+
+# Do some pre-checks before the actual upgrade
+precheck                OS
+manualy_break_os_disk   OS 60
+shutdown_machine
+
+#
+# Please make sure default boot partition is used (no CDROM no USB)
+#

@@ -1,0 +1,377 @@
+################################################################################
+# Template customer specific data set. this is preferable to be generated/
+# maintained in a consistent way.
+#
+# All variables starting with _ are meant for the common and host specific 
+# files. This is done to be able to distinguish between them without
+# additional configuration.
+#
+# All variables should be be enclosed with '' or "" !!
+#
+# (c) Copyright 2014-2018 NewNet
+#
+# THIS FILE SHOULD GENERATED IN THE FUTURE
+#
+# $Id: Data-Customer.cfg_template,v 1.19 2019/05/01 06:57:44 skrish10 Exp $
+################################################################################
+
+################################################################################
+# The automate section.
+#
+# The variables are steering variable for the automation script itself. They
+# have defaults so the whole section could be skipped. The variables will
+# be set with STR_. Be careful defining random names! This label also allows
+# It to be predefined in the storage module
+[automate]
+run_type         = 'install'               # install, upgrade
+#selected_node   = 'oam2'                  # Will overrule serial number matching use with care! (all node could become the same).
+#download_srv    = 'http://{address}'      # Download server, access using wget
+dwnl_retry_time  = '30'                    # Time before retrying manual download availability
+dwnl_max_retries = '10'                    # amount of times to try man download
+lic_retry_time   = '30'                    # Time before retrying manual license availability
+lic_max_retries  = '10'                    # amount of times to try man license
+ssh_retry_time   = '60'                    # Time before retrying SSH peers
+ssh_max_retries  = '30'                    # amount of times to try SSH
+
+#
+# Some variables to skip functionality. 
+# Know what you are doing, it is now all up-to your responsibility to execute
+# skipped things.
+#
+# Set to 1 to skip.
+skip_reboot=''                             # Skip the requested boot phase
+skip_step_update_devices = ''              # Skip the step 'update_devices'
+
+
+################################################################################
+# The generic section.
+#
+# These variables will be set with the GEN_ prefix and without and can be used
+# in any automate shell script.
+#
+[generic]
+mysql_tz        = 'GMT'              # Time zone used by MySQL (for STV)
+ntp_server      = '{ip-address}'     # Define to enable NTP
+os_tz           = 'Europe/Amsterdam' # Time zone used by OS     
+ssl_needed      = '0'                # Are SSL certificates needed [0|1]
+shortcode_len   = '5'                # The default shortcode length as use by the MGR/system [3..6]
+netw_def_gw     = '{ip-address}'     # Default gateway of OAM-lan
+typ_reserved_mem = '8192'            # The typical amount of memory in MB reserved for MM processes, will scale down if needed
+min_reserved_mem = '1024'            # The absolute minimal reserved memory in MB for MM processes
+syslog_umask    = '033'              # System log umask
+#savelogs_onfail = ''                # Auto save logs on failure [0|1], The default is enabled.
+
+################################################################################
+# ISO configuration, theoretically multiple are supported
+[iso/NMM-SW]
+file            = 'NMM-SW-10.8.3-108.9.0_RHEL5.iso'
+md5             = '65e5c0d49d6f1d67e57dea93930c637c'
+
+################################################################################
+# Component specific configuration which is shared among all components of
+# the same type. The configuration should be symmetrical over all nodes. Which it
+# normally is. It could be decided to change it is in the future. For now this is
+# the most logical and most real life situation.
+#
+[cfg/common]
+_commonaddress    = '313130009700'     
+_countrycode      = '31'
+_mobilecountrycode= '204'
+_mobilenetworkcode= '10'
+_virtualpointcode = '123'
+
+[cfg/networkdiscovery]
+_multicastaddress= '239.41.129.58'
+_networkaddress  = '10.41.129.0'
+_networkmask     = '255.255.255.0'
+
+# Optional Multi Instances Configuration (not zoneing)
+[cfg/instances]          
+base_port_01 = '16000'     # For tpuser01, defaults to 16000
+base_port_02 = '16200'     # For tpuser02, defaults to 16200
+base_port_03 = '16400'     # For tpuser03, defaults to 16400
+base_port_04 = '16600'     # For tpuser04, defaults to 16600
+base_port_05 = '16800'     # For tpuser05, defaults to 16800
+base_port_06 = '17000'     # For tpuser06, defaults to 17000
+base_port_07 = '17200'     # For tpuser07, defaults to 17200
+base_port_08 = '17400'     # For tpuser08, defaults to 17400
+base_port_09 = '17600'     # For tpuser09, defaults to 17600
+
+[cfg/ADAX]
+card_type        = 'HDC3'       # NONE|HDC3|ATMII
+intf_type        = 'HSL'        # HSL|NSL
+num_links        = '4'
+
+[cfg/AMS]
+_numberofreplicas   = "1"             # Could be taken out of license?
+_masterstoragetype  = "nonvolatile"   # 'volatile' or 'nonvolatile'
+_replicastoragetype = "nonvolatile"   # 'volatile' or 'nonvolatile'
+
+[cfg/BAT]
+_dbuser          = 'BATuser'
+_dbpassword      = 'BATuser123'
+
+[cfg/DMF]
+#processed_dir             = "/var/TextPass/intercept/processed"
+#output_dir                = "/var/TextPass/intercept/output"
+
+[cfg/ECABM]
+config_file = 'ECABM_AO_config.txt'     # If ECABM needed, make sure available in /usr/tmp/download/etc (or via dowload_data).
+
+[cfg/EMG]                          # Example parameters, verify if EMG is used
+_shortnumber               = "1234"
+# Do not define _owndomain in common unless the terminatpoint are defined in 
+# the common_config file. Otherwise it will trigger a knwon validation problem.
+# In staid define it in the [node] section if the EMG is enabled as component!
+#_owndomain                 = "textpass.com"
+_applicationsmppsystemid   = "textpass"
+_applicationsmpppassword   = "secret"
+_applicationsmppsystemtype = "TestScript"
+
+[cfg/HUB]
+
+[cfg/IIW]
+
+[cfg/LGP]
+#db              = 'lgp'
+#db_usr          = 'LGPuser'
+#db_pwd          = 'LGPuser123'
+
+[cfg/LGR]
+#db              = 'lgr'
+#db_usr          = 'LGRUser'
+#db_pwd          = 'LGRUser123'
+#reports         = '01 02 03 04 05 06'  # Define additional reports numbers, defualts to none.
+
+[cfg/MGR]
+#db_usr          = 'MGRuser'        # The actual database user used for the MGR database
+#db_pwd          = 'MGRuser123'
+#if_usr          = 'admin'          # The user user for the Manager interface (GUI/shell)
+#if_pwd          = 'admin123'
+
+[cfg/MySQL]
+base_dir        = '/usr/local'        # The default location of the base directory.
+def_dir         = '/var/lib/mysql'    # The default location of the data directory.
+# Be very careful changing the data_dir. As the LGP will use a different one.
+# Currently there is no support for definition per node.
+# The Automation tool will use the proper one so not need to change anyhow!
+#data_dir        = '/data/mysqldata'   # The target location of the data directory.
+# Same applies for the tmp_dir which could be overruled, no need however!
+#tmp_dir         = '/data/mysql_tmp'
+
+[cfg/FTA]
+#dmf_final_dir   = "/var/TextPass/output"    # Where FTA on OAM collects the final output files
+#dmf_list_dir    = "/var/TextPass/dmf_list"  # Where the distributed filter files are stored on the OAM/FTA.
+
+[cfg/OAM]
+master            = 'oam2'                    # Indentifies the master OAM/MGR node
+def_domain        = 'main'                    # The default domain, for future use, leave out for defaut of main.
+download/etc of the system or downlo                                                ad-data/etc folder of USB.
+# Please don't use ECABM_config_file anymore, use [cfg/ECABM]config_file=  instead
+
+[cfg/ECABM]
+config_file = 'ECABM_AO_config.txt'
+
+[cfg/PBC]
+#db              = 'pbc'
+#db_type         = 'ldap'            # [ldap|mysql|oracle] defaults to ldap
+#db_usr          = 'PBCuser'
+#db_pwd          = 'PBCuser123'
+#eval_script     = 'amdocs_eval_script.txt' # The script specified here needs to be copied to /usr/tmp/download/etc of the system or download-data/etc folder of USB.
+#term_script     = 'amdocs_term_script.txt' # The script specified here needs to be copied to /usr/tmp/download/etc of the system or download-data/etc folder of USB.
+
+[cfg/RTR]
+ss7_link_type   = 'SIGTRAN'         # SIGTRAN/ADAX(NMM < 16.0) this should be symmetrical over the nodes
+
+# To define an STV-Poller the STVPol has to be defined in the comp field of
+# a node below. Also the devices has to be define here to state which devices
+# should be polled. Normally all devices of the same time are polled if that
+# is not wanted then either remove the STVPol from the comp field to exclude
+# a whole node or use the exclude_pollers field to exclude a specific polling
+# device from a node (located under node section).
+[cfg/STV]
+devices          = 'AMS RTR AMS EMG FAF HUB IIW PBC RTR SYS' # Use SYS for system monitoring, basically enable pollers on all nodes
+#snmp_port       = '11114'
+#poll_interval   = '10'
+master           = 'oam2'    # Indicates where STV master should be installed
+#db_usr          = 'STVuser'
+#db_pwd          = 'STVuser123'
+
+
+
+###############################################################################
+# Next is the actual node configuration. 
+# This is an OAM  node definition 
+
+[oam2]
+serial          = 'CZ211200VZ'
+oam_lan         = '10.41.129.32'
+host            = 'oam2'
+ilo             = '10.41.129.51'    # The IP address on which ILO is accessible currently only for reference/completeness
+# forced_hostid    = '1234abcd'     # Force to an hostid. exact 8 hexadecimal digits.
+# exclude_pollers = 'SYS'          # Allows to exclude a list (space separated) of devices from the standard [cfg/STV]devices
+
+# The IP configuration, choose any of the following combination as long as 
+# there are not IP conflicts or ethernet conflicts. Also numbers are not checked
+# so please take care. Typically interface goes from 0-3 or 0-7
+# bonds numbering is not limits. VLAN tags 1-4094
+# VLAN tagging and none VLAN tagging on same interface (like eth0 and eth0_123)
+# is not allowed. This is not checked and will result in strange behavior.
+#
+# A Single Ethernet without VLAN tag, e.g.
+eth0           = '10.41.129.32 255.255.255.0'     # ip<sp>network_mask
+# A VLAN tagged single Ethernet, e.g
+# eth1_123       = '10.0.0.1 255.255.255.0'     # vlan=123, ip<space>network_mask
+# A Bonded interface without VLAN tag. e.g. (max 2 ethernets has been tested)
+# bond0          = '10.41.129.57 255.255.255.0 eth0 eth1'  # ip<sp>network_mask<sp>ethx[<sp>ethy]
+# A VLAN tagged bonded interface, e.g.
+#bond0_1129       = '10.41.129.58 255.255.255.0 eth0 eth1' # vlan=1129 ip<sp>network_mask<sp>ethx[<sp>ethy]
+
+comp            = 'MGR STV CCI BAT STVPol'
+_batindex        = '1'
+_batname         = 'BAT'
+_batipaddress    = '10.41.129.58'
+
+###############################################################################
+# INSTANCE CONFIGURATION EXAMPLE
+# [node#[0-9]] Is reserved for instancing. If instancing is not needed then this
+# section is not need (all variables should go under the main.
+# If multi-instance is use then the main section should still exists, as that
+# defines the main information of the node.
+# HOWVER the comp = '' should be REMOVED from the [node] section. Keep in mind
+# that items are inherited. So if not defined in instance then the main
+# config is used. This might not be the wanted behavior. So e.g.
+# - There is only one ip config so this goes only under the main
+# - Each hub/iiw should have its own external ip so goes under instance
+# - Each ams has needs it own directories (preferably other disks) so under instance
+# - Each route has its own pc/gt so under instance
+# - etc for other required/future config.
+# This is not a customer like example!
+#[oam2#0]                         # This is the main users well if not instantiated
+#comp            = 'MGR STV CCI'
+#
+#[oam2#1]                         # Only allowed for instantiating systems (for now RHEL)
+#comp            = 'RTR AMS HUB'
+#hubipaddressownexternal = '10.41.129.58'
+#_amsdbdatabasedirectorymaster="/dbamsstore/master"
+#_gtaddressinfo    = '313130009702'
+#_pointcode        = '141'
+#
+#[oam2#2]
+#comp            = 'RTR HUB AMS'
+#hubipaddressownexternal = '10.41.129.59'
+#_amsdbdatabasedirectorymaster="/dbamsstore/master1"
+#_gtaddressinfo    = '313130009703'
+#_pointcode        = '142'
+
+
+[schouten#3]
+comp            = 'LGP'
+
+[schouten#4]
+comp            = 'LGP'
+#comp            = 'B AMS'          
+#_batindex        = '0'
+#_batname         = 'BAT'
+#_batipaddress    = '10.41.129.58'
+comp            = 'RTR AMS HUB'
+_amsdbdatabasedirectorymaster="/dbamsstore/master"
+amsjustavar = '1'
+hubipaddressownexternal = '10.0.0.129'
+_gtaddressinfo    = '313130009702'
+_pointcode        = '141'
+
+
+[schouten#2]
+comp            = 'RTR HUB AMS'
+_amsdbdatabasedirectorymaster="/dbamsstore/master1"
+amsjustavar = '2'
+hubipaddressownexternal = '10.0.0.130'
+
+###############################################################################
+# The logging Element Section
+[lgp]
+serial          = 'CZ210707R8'
+oam_lan         = '10.41.129.86'
+host            = 'lgp'
+ilo             = '10.41.129.53'
+eth0            = '10.0.0.0 255.255.255.0'
+forced_hostid   = '1234abcd'
+comp            = 'LGP STVPol'
+
+###############################################################################
+# The Traffic node Section
+[tra3]
+serial          = 'CZ210707R3'
+oam_lan         = '10.41.129.38'
+host            = 'tra3'
+ilo             = '10.41.129.55'
+eth0            = '10.41.129.38 255.255.255.0'
+eth1            = '10.0.0.1 255.255.255.0'
+forced_hostid   = '1234abcd'
+#bond0_1129      = '10.41.129.58 255.0.0.0 eth0 eth1'
+comp            = 'DMF RTR HUB AMS PBC FAF EMG IIW ECABM STVPol'
+
+# dmf intercept path
+#_interceptfilelocation        = "/var/DMF/intercept/available"
+
+# managed through MGR, can I auto add things like
+_hubipaddressowninternal = '10.41.129.57'
+hubipaddressownexternal = '10.41.129.57'
+hubipv6addressownexternal = '2001:cdba::3257:9652'
+iiwipaddressownexternal = '10.41.129.57'
+iiwSecondaryExternalIp = '10.41.129.52'
+#ExternalApplicationInclude = 1
+
+# EMG host config parameters. Verify/Change if EMG is used
+_emgowndomain                 = "textpass.com"
+_emgipaddressownexternal      = "10.0.0.1"
+
+# RTR host specific paramter configuration
+_gtaddressinfo    = '313130009702'
+_pointcode        = '141'
+
+# SIGTRAN configuration items
+#_m3ualocaladdress_0_spec          = '{ip-address}'    # ASP role use multiple for multi homing
+#_m3ualocaladdress_1_spec          = '{ip-address}'    # ASP role use multiple for multi homing
+#_m3uasgp_0_name                   = 'SGP-1'
+#_m3uasgp_0_sctplocalport          = '2906'
+#_m3uasgp_0_sctpremoteport         = '2906'
+#_m3uasgp_0_useforvirtualpointcode = 'false'
+#_m3uasgp_0_remoteaddress_0_spec   = '{ip-address}'
+#_m3uasgp_0_remoteaddress_1_spec   = '{ip-address}'
+#_destination_0_name               = 'STP-1'
+#_destination_0_type               = '{stp|smsc|hlr|msc|relay|monitoredsmsc}'
+#_destination_0_pointcode          = '{point-code}'
+#_destination_0_route_0_m3uasgp    = 'SGP-1'
+#_destination_0_route_1_m3uasgp    = 'SGP-2'
+
+
+# NSL link configuration
+#_trunk_0_port='1' 
+#_trunk_0_type='e1withcrc120ohm'
+#_trunk_1_port='2'
+#_trunk_1_type='e1withcrc120ohm'
+#_destination_1_name               = 'STP-1'
+#_destination_1_type               = '{stp|smsc|hlr|msc|relay|monitoredsmsc}'
+#_destination_1_pointcode          = '{point-code}'
+#_destination_1_linkset_0_link_0_trunk    = '1'
+#_destination_1_linkset_0_link_0_timeslot = '1'
+#_destination_1_linkset_0_link_0_slc      = '0'
+
+
+# HSL link configuration
+#_trunk_2_port = '1'
+#_trunk_2_port = '1'
+#_destination_2_name               = 'STP-1'
+#_destination_2_type               = '{stp|smsc|hlr|msc|relay|monitoredsmsc}'
+#_destination_2_pointcode          = '{point-code}'
+#_destination_2_linkset_0_link_0_trunk    = '1'
+#_destination_2_linkset_0_link_0_slc      = '0'
+
+# GT configuration
+#_gttrule_0_inputgtaddressinfo="{gt-prefix}"
+#_gttrule_0_outputroutingindicator="ssn"
+#_gttrule_0_outputgtindicator="0"
+#_gttrule_0_outputmtpdestination="MSC-Y"
+

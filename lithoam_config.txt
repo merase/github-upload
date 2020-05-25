@@ -1,0 +1,45 @@
+<!--
+    Sample for the host-specific configuration file for the TextPass BAT
+    (c) Copyright 2005-2013 NewNet
+    
+    $Id: hostname_config.txt_template_bat,v 2.8 2013/01/17 13:05:38 n2shar10 Exp $
+-->
+
+<tpconfig
+    ipaddress="10.183.141.213"
+    runtextpassprocess="false"
+    runtpfclientprocess="true"
+    runtextbatprocess="true"
+
+    batindex="31" 
+    batname="BAT"
+    batipaddress="10.183.141.213"
+
+  >
+
+
+    <fxferfile
+       localpath="/usr/TextPass/etc/common_config.txt"
+       serverpath="/usr/TextPass/etc/common_config.txt"
+       validate="/usr/TextPass/bin/tp_config --validatecommonconfig SERVERFILE"
+    />
+    <fxferfile
+        localpath="/usr/TextPass/etc/MGRdata.xml.gz"
+        serverpath="/usr/TextPass/etc/MGRdata.xml.10.183.141.213.gz"
+    />
+
+    <trapreceiver ipaddress="127.0.0.1" udpport="11173" />
+
+<!-- Sample for a specific configuration file
+    CCI
+     (c) NewNet 2013
+ $Id: hostname_config.txt_template,v 1.14 2008/07/17 10:55:10 tje Exp $
+-->
+<!-- 
+    Retrieve the configuration information from the MGR. 
+    Only needed if the CCI runs on a different platfrom from the MGR 
+-->
+
+  <fxferfile localpath="/usr/TextPass/etc/MGRcci.xml.gz" serverpath="/usr/TextPass/etc/MGRcci.xml.gz"/>
+  <trapreceiver ipaddress="127.0.0.1" udpport="11173"/>
+</tpconfig>

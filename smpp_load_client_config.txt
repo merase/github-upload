@@ -1,0 +1,10 @@
+<loadgenerator serveripaddress="10.183.141.57" throughput="1" duration="1" role="client">
+  <defaults />
+  <application name="App 3333" type="smpp" system_id="1" system_type="1"
+               OAdC="3333" password="TextPass" sessions="1" instable_sessions="0"
+               windowsize="255" serverport="9000" nackrate="0" timeoutrate="0">
+    <requests>
+      <submit name="first" AdC="313138681062" OAdC="3333" msg="Test"/>
+    </requests>
+  </application>
+</loadgenerator>

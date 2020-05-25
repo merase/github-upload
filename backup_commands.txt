@@ -1,0 +1,76 @@
+df -kh
+mkdir /backup/tpbackup_`hostname`
+mkdir -p /backup/tpbackup_`hostname`
+chmod 777 /backup/tpbackup_lithium175/
+mkdir -p /backup/tpbackup_`hostname`/textpass
+chmod 777 /backup/tpbackup_lithium175/textpass/
+chown textpass:textpass /backup/tpbackup_`hostname`/textpass
+rpm -qa > /backup/tpbackup_`hostname`/`hostname`_17.5_packages_installed.txt
+mysqladmin --version
+su - textpass
+cd /backup/tpbackup_lithium175/
+ls -lrt
+chown -R root:root OSfiles/
+ls -lrt
+cd OSfiles/
+ls -lrt
+cp /etc/sysconfig/network-scripts/ifcfg-* /backup/tpbackup_`hostname`/OSfiles/network_scripts
+cp /etc/sysconfig/network-scripts/route-* /backup/tpbackup_`hostname`/OSfiles/network_scripts
+mkdir -p /backup/tpbackup_`hostname`/OSfiles/host_bkp
+cp /etc/host* /backup/tpbackup_`hostname`/OSfiles/host_bkp
+hostid
+mkdir -p /backup/tpbackup_`hostname`/OSfiles/etc_logrotate
+cp /etc/logrotate.conf /backup/tpbackup_`hostname`/OSfiles/etc_logrotate/
+cp /etc/logrotate.d/* /backup/tpbackup_`hostname`/OSfiles/etc_logrotate/
+cp /etc/resolv.conf /backup/tpbackup_`hostname`/OSfiles/etc_resolv.conf
+cp /etc/ntp.conf /backup/tpbackup_`hostname`/OSfiles
+ntpq p
+ntpq -p
+cp /etc/grub.conf /backup/tpbackup_`hostname`/OSfiles
+cp /etc/sysctl.conf /backup/tpbackup_`hostname`/OSfiles
+cp /etc/rsyslog.conf /backup/tpbackup_`hostname`/OSfiles
+cp /etc/profile.d/tz.sh /backup/tpbackup_`hostname`/OSfiles
+date
+mkdir /backup/tpbackup_`hostname`/OSfiles/modprobe.d
+cp -r /etc/modprobe.d/* /backup/tpbackup_`hostname`/OSfiles/modprobe.d
+cp /etc/fstab /backup/tpbackup_`hostname`/OSfiles/etc_fstab
+cat /etc/fstab
+cp /etc/mtab /backup/tpbackup_`hostname`/OSfiles/etc_mtab
+mkdir /backup/tpbackup_`hostname`/OSfiles/etc_ssh
+cp /etc/ssh/ssh_host* /backup/tpbackup_`hostname`/OSfiles/etc_ssh/
+cp /etc/crontab /backup/tpbackup_`hostname`/OSfiles
+cp -r /etc/cron.daily /backup/tpbackup_`hostname`/OSfiles
+cp -r /etc/cron.weekly /backup/tpbackup_`hostname`/OSfiles
+cp -r /etc/cron.monthly /backup/tpbackup_`hostname`/OSfiles
+cp -r /var/spool/cron /backup/tpbackup_`hostname`/OSfiles
+awk -F: '(($3==200))' /etc/passwd > /backup/tpbackup_`hostname`/OSfiles/textpass_passwd.mig
+awk -F: '(($3==200))' /etc/group > /backup/tpbackup_`hostname`/OSfiles/textpass_group.mig
+cat /etc/shadow
+cat /etc/passwd
+awk -F: '(($3==200)) {print $1}' /etc/passwd | tee - |egrep -f - /etc/shadow > /backup/tpbackup_`hostname`/OSfiles/textpass_shadow.mig
+cp -r /root/.ssh /backup/tpbackup_`hostname`/OSfiles/root_dot_ssh
+su - textpass -c "mkdir -p /backup/tpbackup_`hostname`/OSfiles/textpass_dot_ssh/"
+su - textpass -c "cp -r /usr/TextPass/.ssh/* /backup/tpbackup_`hostname`/OSfiles/textpass_dot_ssh/"
+awk -F: '(($3>=500) && ($3<65534)) {print $1, $6}' /etc/passwd
+mkdir /backup/tpbackup_`hostname`/users/
+cd /backup/tpbackup_`hostname`/users/
+cd /home/
+ls -rlt
+su - textpass
+/usr/TextPass/bin/tp_mgr_backup --name=/backup/tpbackup_lithium175/MGRDatabase.sql
+su - textpass
+mysqldump -uroot -pokal$ --databases mysql > /backup/tpbackup_`hostname`/lgp_mysql_configuration
+mysqldump -uroot -plokal$ --databases mysql > /backup/tpbackup_`hostname`/lgp_mysql_configuration
+mkdir -p /backup/tpbackup_`hostname`/MySQL/Server/MySQLbaseversion
+cd /backup/tpbackup_lithium175/MySQL/Server/MySQLbaseversion/
+df -kh
+ls -lrt
+cd /data/
+ls -lrt
+cd /backup/tpbackup_lithium175/MySQL/Server/MySQLbaseversion/
+tar -zcvf mysqldata.tar.gz /data/mysqldata/
+df -kh
+cd /backup/tpbackup_lithium175/
+ls -lrt
+su - textpass
+exit

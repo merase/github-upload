@@ -1,0 +1,93 @@
+=title Help for the auto-document feature of Automate
+=
+THE AUTO-DOCUMENT FEATURE
+
+1. Introduction
+
+   The auto-document feature of Automate allows the tool to generate more
+   readable text out of the underlying script files. With the help of some
+   additional annotations this should give a better understanding of what the 
+   scripts where supposed to do.
+
+   The idea behind the auto-document feature is not to have a separated document
+   which has to separately be maintained and tested. But to have the helpful
+   information directly out of the code and thus far more closer to the truth.
+
+2. Intended Users
+
+   This feature is mainly intended for the support engineer executing Automate.
+   PV engineer could use it to verify output of the autop-document feature
+   and check on its output.
+   R&D need it for verifying the functionality and new steps themselves.
+   THIS IS NOT INTENDED FOR DIRECT CUSTOMER USES. It is possible to generate 
+   all step information but that does not have customer grade output yet.
+
+3. Help required
+
+   Please be aware that this auto create might required improvements to make
+   the steps clearer. For this you suggestions are vital. The suggestions
+   can be used to improve the auto-document feature. Improvements within
+   certain boundaries can easily be made. Please mail suggestions to the 
+   automate owner (currently Frank.Kok@newnet.com) or make a bug. Though a bug
+   is the slow and inefficient way for some simple comment changes.
+
+4. What it does
+
+   The auto doc feature works in following ways:
+   a. Upon unexpected tool failure it will auto-document the the current step
+      to the screen. Here it will try to pinpoint the failed location. By
+      using colors, green=pass, red=failed area, white=todo or additional help.
+
+      By default this is on (you don't want to witch it on and rerun). However
+      you can disable it in case this is buggering you or something else goes
+      wrong in this code. Use the automate option [--no_doc] and this 
+     auto-document on failure will be disable for this run (not permanent).
+
+    b. Use the automate option [--doc] without parameter to show this help text.
+
+    c. Use the automate option [--doc=<step #> ] to show the documentation for
+       a specific step from the current list. The list with number could be
+       shown using the [--list] option.
+
+    d. Use The automate option [--doc=0] to show document for the current active
+       step (if any).
+
+    e. Use the automate option [--doc=steps] to auto-document all steps. 
+       By default this is written to 
+       /var/Automate/auto_doc/<step_cfg_file>.gen.txt, 
+       however use [--doc=steps:<file>] to write it to another file.
+
+    f. More advanced option [--doc='<step info>'] to show the documentation
+       for any textual step. Remember a full step can contain '_' and parameters
+       are separated by a ' '. Th Output on the screen normally filters the '_'.
+       The reals step names can be found in the step file as given by the
+       [-s <step_file>|--stepcfg=<step_file>]. This option does not translate 
+       any tags like in the stepcfg file. This is similar to the current 
+       [--step=''] implementation and it would be to hard to fix that. It would
+       also result in potentially more then 1 file. 
+
+       This is a more advanced feature so if it is not suitable then use the 
+       decoded parameter or use the [--doc=<step #>] feature.
+
+5. Some explanation on the output
+
+   TODO
+
+6. Feedback
+
+   Any suggestions to improve the auto generated documentation. Please share
+   your thoughts with the author (currently 'Frank.Kok@newnet.com') and let us
+   see if it can be easily improved.
+
+7. Disclaimer
+   
+   This is a really complex process. The outcome of help might look different
+   from help generated during failure and a help generated from scratch. This
+   is because the 1st one might have additional variable in memory.
+
+   Some people might wonder do I need the full init-phases of automated for
+   generating documentation. Yes partially as some (I don't know which) 
+   variables are need for proper translating. It is therefore (at this moment)
+   better to have the init as is.
+
+   

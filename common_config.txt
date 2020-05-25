@@ -1,0 +1,78 @@
+<!--
+    Common configuration file for the TextPass Product Suite
+    (c) Copyright 2007-2017 NewNet
+
+    Create by Automation tool on : Thu Aug 24 08:36:20 UTC 2017
+-->
+    <!--
+        In order to avoid having to keep the configuration files on
+        potentially many Traffic nodes in sync, all semi-static configuration
+        parameters that apply to all Traffic nodes equally should be specified
+        in the common_config.txt file, distributed from the OAM node.
+        (See fxferfile-tag in {hostname}_config.txt.)
+    -->
+    
+
+<tpconfig
+    amsmasterstoragetype="nonvolatile"
+    amsnumberofreplicas="0"
+    amsreplicastoragetype="nonvolatile"
+
+    commonaddress="313130009700"
+
+    countrycode="31"
+
+    mobilecountrycode="204"
+    mobilenetworkcode="10"
+
+    networkdiscoverymulticastaddress="239.41.18.30"
+    networkdiscoverynetworkaddress="10.183.141.0"
+    networkdiscoverynetworkmask="255.255.255.0"
+
+    >
+    <fafeci host="10.183.141.210" pass="FAFpassword" port="9500" user="FAFuser" />
+    <fafeci host="10.183.141.212" pass="FAFpassword" port="9500" user="FAFuser" />
+    <fafeci host="10.183.141.212" pass="FAFpassword" port="9500" user="FAFuser" />
+    <fafeci host="10.183.141.212" pass="FAFpassword" port="9500" user="FAFuser" />
+
+    <fafprop
+        normalisationmap="0oO&#246;&#214;&#10;1iIlL!\/&#10;2zZ&#10;3eE&#10;4aA&#228;&#196;&#10;5sS&#223;&#10;6&#10;7tT&#10;8bB&#10;9gG&#10;cC&#10;dD&#10;fF&#10;hH&#10;jJ&#10;kK&#10;mM&#10;nN&#10;pP&#10;qQ&#10;rR&#10;uU&#252;&#220;&#10;vV&#10;wW&#10;xX&#10;yY"
+        />
+
+    <pbceci
+        host="10.183.141.210"
+        maxinactivitytime="15"
+        name="lithte1"
+        password="PBCpassword"
+        port="9500"
+        useridentity="PBCuser"
+        />
+
+    <pbceci
+        host="10.183.141.212"
+        maxinactivitytime="15"
+        name="lithte2"
+        password="PBCpassword"
+        port="9500"
+        useridentity="PBCuser"
+        />
+
+    <pbceci
+        host="10.183.141.212"
+        maxinactivitytime="15"
+        name="lithte3"
+        password="PBCpassword"
+        port="9500"
+        useridentity="PBCuser"
+        />
+
+    <pbceci
+        host="10.183.141.212"
+        maxinactivitytime="15"
+        name="lithte4"
+        password="PBCpassword"
+        port="9500"
+        useridentity="PBCuser"
+        />
+
+</tpconfig>

@@ -1,0 +1,30 @@
+=title How to manually add SSH password-less communication between nodes
+=
+Procedure to manually add SSH-password-less communication between <this> 
+and a <remote> node:
+
+1. Log in to <this> server as user textpass.
+2. Execute: [ Only if not done yet it will invalidate others! ]
+   a. $ ssh-keygen -t rsa
+   #  Press ENTER at the prompts (no passphrase).
+   #  Sample output:\e[2m
+        $ ssh-keygen -t rsa
+        Generating public/private rsa key pair.
+        Enter file in which to save the key (/usr/TextPass/.ssh/id_rsa):
+        /usr/TextPass/.ssh/id_rsa already exists.
+        Overwrite (y/n)? y
+        Enter passphrase (empty for no passphrase):
+        Enter same passphrase again:
+        Your identification has been saved in /usr/TextPass/.ssh/id_rsa.
+        Your public key has been saved in /usr/TextPass/.ssh/id_rsa.pub.
+        The key fingerprint is:
+        61:6c:16:39:00:81:d3:7d:5f:16:d9:bf:9d:ca:1c:06 textpass@<hostname>\e[22m
+3. Execute: [ Only if SSH needed between local node (<this> same as <remote>) ]
+   $ cat /usr/TextPass/.ssh/id_rsa.pub >> /usr/TextPass/.ssh/authorized_keys
+4. Execute: [ Only if SSH to a different remote node ]
+   $ scp /usr/TextPass/.ssh/id_rsa.pub textpass@<remote>:/usr/TextPass/.ssh/authorized_keys_new
+   # Where <remote> is the IP address or host name of a <remote> server.
+   * Log in to a <remote> server as user textpass.
+   $ cd /usr/TextPass/.ssh
+   $ cat authorized_keys_new >> authorized_keys
+   $ chmod 600 authorized_keys

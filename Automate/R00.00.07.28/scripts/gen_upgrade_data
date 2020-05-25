@@ -1,0 +1,903 @@
+#!/bin/sh
+#  (c) Copyright 2017-2017 NewNet                 
+
+: <<=cut
+=script
+A script to generate a customer data file out of the current system information.
+Which is intended to be used for upgrades
+This script should therefore be run on the master OAM node at the customer.
+It will not have impact on the running system so it can be run at any time.
+The script will use the following method(s) to gather information:
+=le tp_shell query interface (not set nor updates)
+=le hosts file checks
+=le ssh under textpass to execute system serial check. 
+
+The script it self should be started under root, though some command will
+be executed using su - textpass.
+
+Disclaimer the tool might not be able to create everything you might want.
+It is to be extended whenever it is useful enough to do so. This tool only
+generated the data file is the input for the real automate tool. It is not 
+stated that the inability to generate or impossibility to generate due lack of
+data by itself means a problem. You can and sometimes should always edit/check
+the file before passing it on the the automate tool. the check at the end
+(check for <>) are helper indication to tell you something has to be fixed.
+
+Current limitations:
+* The MGR, STV, CCI and LGR are assumed to be running (on this) OAM node. 
+  Otherwise it will no be spotted. It is currently not need to spot them 
+  remotely. Theoretical you can still configure it in the data-file if needed.
+* Components not managed by the MGR (yes there are) like ECABM, SSI and others
+  (see ent_not_mged_mgr) require the SSH access and are identified based on
+  teh fact that the package is installed.
+
+
+=version    $Id: gen_upgrade_data,v 1.28 2017/08/31 11:19:17 fkok Exp $
+=author     Frank.Kok@newnet.com
+
+=cut
+
+function show_usage_and_exit() {
+    local ec="$1"       # (M) The exit code to use
+
+    cat << EOF
+A script to generate a customer data file out of the current system information.
+Which is intended to be used for upgrades
+This script should therefore be run on the master OAM node at the customer.
+It will not have impact on the running system so it can be run at any time.
+-?       | --help             : Show this help usage
+
+Remark:
+--------------------------------------------------------------------------------
+The script will use tp_auth to make sure an internal account is available to
+access the MGR. This account will be deactivate when finished.
+EOF
+    exit $ec
+}
+
+# Check command line options
+opt_info=`getopt -o ?u:p: --long help,user:,password: -- "$@"`
+if [ $? != 0 ]; then 
+    echo "Wrong usage, terminating..."
+    show_usage_and_exit 1
+fi
+
+################################################################################
+# Static and dynamic configuration section
+#
+readonly def_IFS=$IFS
+readonly nl=$'\n'
+readonly tb=$'\t'
+readonly com_sep='################################################################################'
+readonly lay_sep='================================================================================'
+readonly int_sep='--------------------------------------------------------------------------------'
+
+# Entities which are not managed by MGR and can thus not be retrieved from database.
+# Personally i think that is worth bug in the MGR and the general mgr cannot activate/deactivate
+# some of the entities within the textpass solution itself. Als make pkg based
+# on the same TextPass predicate.
+readonly ent_not_mged_mgr='ECABM SSI XSBIV XSCRV XSMLC XSMOD XSRMS XSTIE'
+readonly pkg_not_mged_mgr="$(echo -n "$ent_not_mged_mgr" | sed -r 's/((^| ))/\1TextPass/g')"
+
+tp_usr='textpass'
+mgr_usr='aut_admin'     # Not settable via command line
+mgr_pwd='aut1234!'      # Not settable via command line
+mgr_cfg=''
+cmd_shell='tp_shell'
+cmd_auth='tp_auth'
+etc_dir='/var/Automate/etc'
+md5sums_file="$etc_dir/download-data-md5sums.xml"
+data_file='./Data-Customer-Generated-##domain##.cfg'
+
+# Read the command line options, overrules the default if needed
+eval set -- "$opt_info"
+while true; do
+  case "$1" in
+    '-?' | --help     ) show_usage_and_exit     ; shift   ;;
+    --                ) shift                   ; break   ;;
+    *                 )                           break   ;;
+  esac
+done
+
+################################################################################
+# Helper functions definitions
+#
+function echo_exit() {
+    echo "$1" 1>&2
+    exit 1
+}
+
+function create_tp_shell_user() {
+    # This is just a generation tool and we don't want lost of cut/copy paste
+    # technology. We just want the user to be there (no selection).
+    # So add first delete then add and activate
+    su - $tp_usr -c "$cmd_auth delete -n='$mgr_usr' >/dev/null 2>&1"
+    su - $tp_usr -c "$cmd_auth add -n='$mgr_usr' -g='Administrators' -p='$mgr_pwd' -d='automate tool actions' >/dev/null 2>&1"
+    su - $tp_usr -c "$cmd_auth activate -n='$mgr_usr' >/dev/null 2>&1"
+
+    # now it should be ok, it will be tried in a higher function
+}
+
+function disable_tp_shell_user() {
+    su - $tp_usr -c "$cmd_auth deactivate -n='$mgr_usr' >/dev/null 2>&1"
+}
+
+function exec_tp_shell() {
+    local cmd="$1"          # (M) The full command to execute
+    local allow_err1="$2"   # (O) if set an the error matches then the request is allowed, 1 will be returned when this matches
+    local allow_err2="$3"   # (O) if set an the error matches then the request is allowed, 2 will be returned when this matches
+
+    func_return="$(su - $tp_usr -c "$cmd_shell --user=$mgr_usr --password=$mgr_pwd $cmd")"
+    #Check failure , though tp_shell does not always give a proper err
+    local err="$(echo -n "$func_return" | grep 'failed')"
+    if [ $? != 0 ] || [ "$func_return" == '' ] || \
+       [ "$err" != '' ]; then 
+        if [ "$allow_err1" != '' -a "$(echo -n "$err" | grep "$allow_err1")" != '' ]; then
+            return 1
+        fi
+        if [ "$allow_err2" != '' -a "$(echo -n "$err" | grep "$allow_err2")" != '' ]; then
+            return 2
+        fi
+        echo_exit "$func_return${nl}tp_shell failed, cmd: $cmd"
+    fi
+    return 0
+}
+
+: <<=cut
+=func_int
+This function translate the output a  show table into separate rows.
+got_rows[0] will contain the header. The other the rows it self.
+=set got_rows
+The rows retrieved. All space and extra information will be stripped.
+=cut
+function get_table() {
+    local table="$1"    # (M) The table to retrieve (without Table in the name)
+
+    table="${table}Table"
+    exec_tp_shell "--show $table"
+
+    unset got_rows
+    IFS=$nl
+    got_rows=($(echo "$func_return" | grep -e '^Table' -e "^$table" | sed -e 's/ *| */|/g' -e 's/ *$//'))   # safe copy to prevent changing, remove spaces, filter header + data rows
+    IFS=$def_IFS
+}
+
+: <<=cut
+=func_int
+Retrieves the value of a field from a table from a specific index. 
+=func_note
+This is most definitely nto the most optimal function if multiple fields would 
+be needed from the same index. But is it the easiest/cheapest approach in
+programming.
+The functions output is only tested fro single line fields! Otherwise onl the
+1st line is returned.
+=stdout
+The found value or enpty in case field or index was not found.
+=cut
+function get_field_from_idx() {
+    local table="$1"    # (M) The table to retrieve (without Table in the name)
+    local field="$2"    # (M) The field to retrieve.
+    local idx="$3"      # (M) The indexe to search for.
+
+    exec_tp_shell "--show ${table}Table --index=$idx"
+    echo -n "$func_return" | grep "^ *$field: " | sed "s/^ *$field: //"
+}
+
+: <<=cut
+=func_frm
+Get a field from a given string. The separator is by default a '|' can be
+changed.
+=stdout
+The request field or empty if not found.
+=cut
+function get_field() {
+    local fld_num="$1"  # (M) The field number to retrieve (starts at 1), like -f from cut.
+    local str="$2"      # (M) The string tor retrieve from.
+    local sep="$3"      # (O) The optional separator (default to '|') 
+
+    if [ "$fld_num" == '' ]; then
+        :
+    elif [ "$sep" == '' ]; then
+        echo -n "$str$sep" | cut -d '|' -f $fld_num
+    elif [ "$sep" == '\t' ]; then
+        echo -n "$str$tb" | cut -f $fld_num
+    else
+        echo -n "$str$sep" | cut -d "$sep" -f $fld_num
+    fi
+}
+
+: <<=cut
+=func_int
+Get the index (or line number) of a given entry from a string. The entries has 
+to be unique and separated by space or any other separator. The given entry 
+has to be found otherwise it is seen as an error
+=stdout
+The index of the entry, the first entry is index 1. Empty if not found.
+=cut
+function get_index_from_str() {
+    local str="$1"      # (M) The string with entries to search in
+    local entry="$2"    # (M) The entry to search for (exact match)
+    local sep="$3"      # (O) The separator being used in the str, default '|'
+    local empty="$4"    # (O) If set then empty is allow (no error)
+
+    sep=${sep:-|}
+    # use grep to make line numbers
+    local res=$(echo "$str" | tr "$sep" '\n' | grep -n "^$entry\$" | cut -d ':' -f1)
+    if [ "$res$empty" == '' ]; then
+        echo_exit "$entry not found in given list, interface changed?"
+    fi
+    echo -n "$res"
+}
+
+: <<=cut
+=func_int
+Translates a MGR device type number into a name. The MGR does not supply something
+smart.
+=cut
+function translate_type() {
+    local type="$1" # The MGR device type to translate
+
+    # This translation is so stupid, but the MGR does not offers something
+    # accessible.
+    local dev=''
+    case $type in
+        1 ) dev='RTR'    ; ;;
+        2 ) dev='HUB'    ; ;;
+        3 ) dev='AMS'    ; ;;
+        4 ) dev='FAF'    ; ;;
+        5 ) dev='LGP'    ; ;;
+        6 ) dev='STV'    ; ;;
+        7 ) dev='BAT'    ; ;;
+        9 ) dev='EMG'    ; ;; 
+        10) dev='SPFCORE'; ;;
+        11) dev='SPFSMS' ; ;;
+        12) dev='SPFSOAP'; ;;
+        13) dev='PBC'    ; ;;
+        14) dev='XSCPY'  ; ;;
+        15) dev='XSFWD'  ; ;;
+        16) dev='XSARP'  ; ;;
+        17) dev='XSSIG'  ; ;;
+        18) dev='XSDIL'  ; ;;
+        19) dev='XSBWL'  ; ;;
+        20) dev='IIW'    ; ;;
+        *) echo_exit "Unrecognized device type '$type' new device?"; ;;
+    esac
+
+    echo -n $dev
+}
+
+: <<=cut
+=func_int
+Tries to retrieve file information from an md5sums.xml file. For the generation 
+process it will be assumed this can found in the download directory or download
+thorugh http. 
+=set FILE_name
+The found file name. Empty if none found.
+=set FILE_md5
+The md5sum belonging to this file.
+=cut
+function retrieve_file_info() {
+    local recog1="$1"   # (M) File recognition part 1 e.g. MM-SW (for TMM-SW and NMM-SW)
+    local recog2="$2"   # (M) File recognition part 2 e.g. RHEL  (for RHEL5 and RHEL6)
+    local file="$3"     # (O) The md5sums.xml file to retrieve it from by default $md5sums_file
+
+    FILE_name=''
+    FILE_md5=''
+
+    file=${file:-"$md5sums_file"}
+    if [ -r "$file" ]; then
+        #
+        # This assumes an XML with 1 line per entry!! Which is not monkey proof
+        #
+        local matches=$(grep "$recog1" "$file" | grep "$recog2")
+        local num=$(echo "$matches" | wc -l)
+        case $num in
+            0 ) return; ;;      # Not found
+            1 ) : ;;            # 1 is expect continue
+            * ) echo "Found more than one matching entry for '$recog1' & '$recog2'"
+                echo "Skipping auto file recovery."
+                return
+                ;;
+        esac
+        local lines=$(echo -n "$matches" | tr ' ' '\n')
+        FILE_name=$(echo -n "$lines" | grep -i 'Name' | cut -d'"' -f2)
+        FILE_md5=$(echo -n "$lines" | grep -i 'MD5Sum' | cut -d'"' -f2)
+
+        if [ "$FILE_name" == '' -o "$FILE_md5" == '' ]; then
+            echo "MD5 entry incomplete Name='$FILE_name' or MD5Sum='$FILE_md5' empty."
+            FILE_name=''; FILE_md5=''       # Incomplete whipe it
+        fi
+    fi
+}
+
+################################################################################
+# main program starts from here
+#
+
+# Check whether script is being run as root
+[ $EUID -ne 0 ] && echo_exit "This tool must be run as root!"
+
+echo "$lay_sep
+This tool will create a Customer Specific Data configuration file.
+To be used by the automate tool. It is intended for upgrades of
+existing systems only!
+
+DISCLAIMER: It has been tested for most common options, and might not support 
+very specific ones. If needed one should also verify and adapt the generated
+file. A 'unknown' missing in the helper tool to generated does not mean by 
+default the automate tool is not capable of upgrading in case the file is
+manually fixed. This is caused by the fact the current inability to manage
+and predict all deviations. For more information see header of this scripts.
+$int_sep"
+
+# Check access to tp_shell
+su - $tp_usr -c "which $cmd_shell" >/dev/null 2>&1
+[ $? != 0 ] && echo_exit "Did not find tp_shell, is this an OAM node?"
+
+create_tp_shell_user
+
+# Improve: Allow for 2 errors and recognize 'Operation is not allowed' which
+# then can translate into a wrong user/password error which caused questions
+# before
+
+# Try to connect to localhost, failure means no master OAM (or MGR not running)
+exec_tp_shell "--show domainTable" 'Request failed' 'Operation is not allowed'
+ret=$?
+case $ret in
+    1) echo_exit "Failed to execute tp_shell, is this the master MGR node?${nl}This tool must run on the MGR master node!"; ;;
+    2) echo_exit "There is a problem with the login credentials, check '$mgr_usr'. Delete if possible it should be re-added."; ;;
+    0) : ;;
+    *) echo_exit "Unhandled return value ($ret) from 'exec_tp_shell'."; ;;
+esac
+
+get_table 'domain'
+dom_rows=("${got_rows[@]}") # Safe it as just to be inline with namings
+dom_num="${#dom_rows[@]}"
+dom_hdr="${dom_rows[0]}"
+dom_idx_fld=$(get_index_from_str "$dom_hdr" 'domainIndex'      )
+dom_nam_fld=$(get_index_from_str "$dom_hdr" 'domainName'       )
+
+# First the simple count checks on domain
+oam_def_domain=''
+oam_domains=''
+if [ "$dom_num" -lt 2 ]; then
+    echo_exit "Did not find any MGR domain, please investigate."
+elif [ "$dom_num" == 2 ]; then
+    oam_def_domain=$(get_field $dom_nam_fld "${dom_rows[1]}")
+    oam_domains="$oam_def_domain"
+elif [ "$dom_num" -gt 2 ]; then
+    idx=1
+    sep=''
+    while [ "$idx" -lt "$dom_num" ]; do
+        oam_domains+="$sep$(get_field $dom_nam_fld "${dom_rows[$idx]}")"
+        sep=' '
+        ((idx++))
+    done
+    echo "Found more then one domain, please select one:"
+    select oam_def_domain in $oam_domains; do
+        if [[ -n $oam_def_domain ]]; then
+            break
+        else
+            echo "invalid input, please retry."
+        fi
+    done
+fi
+
+# Secondly to see if index is as expected.
+dom_idx=''
+idx=1
+while [ "$idx" -lt "$dom_num" ]; do
+    if [ "$(get_field $dom_nam_fld "${dom_rows[$idx]}")" == "$oam_def_domain" ]; then
+        dom_idx=$(get_field $dom_idx_fld "${dom_rows[$idx]}")
+        break
+    fi
+    ((idx++))
+done
+if [ "$dom_idx" == '' ]; then
+    echo_exit "Did not find domain index for '$oam_def_domain'."
+fi
+data_file=$(echo -n "$data_file" | sed -e "s/##domain##/$oam_def_domain/")
+echo "Creating the file for domain: '$oam_def_domain' with index $dom_idx.
+$int_sep"
+
+peerfsrv="$(grep peerfserver /etc/hosts | tr '\t' ' ' | cut -d ' ' -f1)"
+if [ "$peerfsrv" != '' ]; then
+    echo_exit "There seems to be a slave MGR ($peerfsrv), this is currently not supported!"
+fi
+
+#
+# So far so good lets collects some variables
+#
+our_hname=$(hostname)
+our_ip="$(cat /etc/hosts | tr '\t' ' ' | grep -E " $our_hname( |$)" | cut -d ' ' -f1)"
+if [ "$our_ip" == '' ]; then
+    echo_exit "Cannot determine our ($our_hname) IP address."
+fi
+
+ntp_srv="$(grep 'ntpserver1' /etc/hosts | tr '\t' ' ' | cut -d ' ' -f1)"
+if [ "$ntp_srv" == '' ]; then
+    echo "Could not identify NTP, assuming not enabled, disable verification"
+fi
+
+os_tz="$TZ"
+if [ "$os_tz" == '' ]; then
+    echo "Could not determine TimeZone, please correct later."
+    echo "$int_sep"
+    os_tz='<fill in>'
+fi
+
+skip_db='LGP'
+echo "The following database will not be backed-up: $skip_db."
+echo "Please adapt later if needed."
+echo "$int_sep"
+
+# If the file exists then there is an download dir to be expected
+donw_srv=''
+if [ ! -e "$etc_dir/download-data-dir.txt" ]; then
+    echo -n "Will you be using a HTTP sever to download NMM software (y/n)? "
+    read yes_no
+    if [ "$yes_no" == 'y' ]; then
+        echo    'Please enter main download URL (without file).'
+        echo -n '(e.g. http://10.0.0.2) : '
+        read down_srv
+    fi
+else
+    echo "Found a download-data-dir listing so assuming NO HTTP server"
+fi
+echo "$int_sep"
+
+# Lets see if we can auto retrieve file information from an earlier
+# copied md5sum.xml
+retrieve_file_info 'MM-SW' 'RHEL'
+if [ "$FILE_name" == '' ]; then     # None found still need to do it manual
+    echo    'Please enter the ISO name to install after upgrade (enter to fill in later).'
+    echo -n '(e.g. NMM-SW-xx.y.z-xx.y.z_RHELn.iso) : '
+    read sw_iso
+    if [ "$sw_iso" == '' ]; then
+        sw_iso='<fill in>'
+        sw_md5='<fill in>'
+    else
+        echo ''
+        echo -n 'Please enter MD5 check-sum given ISO : '
+        read sw_md5
+        if [ "$sw_md5" == '' ]; then
+            echo "No check-sum given for '$sw_iso', fill in later."
+            sw_md5='<fill in>'
+        fi
+    fi
+else
+    sw_iso="$FILE_name"; sw_md5="$FILE_md5"
+    echo "Retrieved ISO '$sw_iso' from '<aut_etc>/$(basename "$md5sums_file")'"
+fi
+echo "$int_sep"
+
+#
+# Add MGR config if user or password was set on the command line
+#
+if [ "$mgr_cfg" != '' ];then
+    mgr_cfg="${nl}[cfg/MGR]
+MGR_if_usr      = '$mgr_usr'
+MGR_if_pwd      = '$mgr_pwd'
+"
+fi
+
+#
+# Pre-fetch soem of the data from the MGR
+#
+
+get_table 'server'
+srv_rows=("${got_rows[@]}") # Safe it as there will be an another search
+srv_num="${#srv_rows[@]}"
+srv_hdr="${srv_rows[0]}"
+srv_dom_fld=$(get_index_from_str "$srv_hdr" 'domain'     )
+srv_idx_fld=$(get_index_from_str "$srv_hdr" 'serverIndex')
+srv_ip_fld=$( get_index_from_str "$srv_hdr" 'serverIp'   )
+srv_nam_fld=$(get_index_from_str "$srv_hdr" 'serverName' )
+
+get_table 'device'
+dev_rows=("${got_rows[@]}") # Safe it as just to be inline with namings
+dev_num="${#dev_rows[@]}"
+dev_hdr="${dev_rows[0]}"
+dev_dom_fld=$(    get_index_from_str "$dev_hdr" 'domain'                    )
+dev_idx_fld=$(    get_index_from_str "$dev_hdr" 'deviceIndex'               )
+dev_typ_fld=$(    get_index_from_str "$dev_hdr" 'deviceType'                )
+dev_ip_fld=$(     get_index_from_str "$dev_hdr" 'deviceIp'          '' 'opt')  # fields change in some MGR versions so allow both.
+dev_srv_idx_fld=$(get_index_from_str "$dev_hdr" 'deviceServerIndex' '' 'opt')
+
+get_table 'poller'
+pol_rows=("${got_rows[@]}") # Safe it as just to be inline with namings
+pol_num="${#pol_rows[@]}"
+pol_hdr="${pol_rows[0]}"
+pol_dom_fld=$(get_index_from_str "$pol_hdr" 'domain'           )
+pol_idx_fld=$(get_index_from_str "$pol_hdr" 'pollerIndex'      )
+pol_ast_fld=$(get_index_from_str "$pol_hdr" 'pollerAdminState' )
+pol_nam_fld=$(get_index_from_str "$pol_hdr" 'pollerName'       )
+pol_ip_fld=$( get_index_from_str "$pol_hdr" 'hostName'          )    # Though the field is hostname it always seems to be ip
+
+#
+# Find some local package which cannot be discovered through the manager
+#
+sep=''
+has_stv=0
+has_lgr=0
+loc_pkg=''
+all_pkgs="$(rpm -qa)"
+for comp in MGR STVdaemon CCI LGR; do
+    if [ "$(echo -n "$all_pkgs" | grep "^TextPass$comp")" != '' ]; then
+        [ "${comp:0:3}" == 'STV' ] && has_stv=1
+        [ "$comp" == 'LGR'       ] && has_lgr=1
+        loc_pkg="$loc_pkg$sep${comp:0:3}"
+        sep=' '
+    fi
+done
+
+# We have an STV collect extra data.
+stv_cfg=''
+if [ $has_stv == 1 ]; then
+    devices=''      # First build up a full list, fix later
+    sep=''
+    # First build a list with all types of devices 
+    lp_dev_idx=1
+    while [ "$lp_dev_idx" -lt "$dev_num" ]; do
+        dev_row="${dev_rows[$lp_dev_idx]}"   # Readability
+        ((lp_dev_idx++))
+
+        dev_idx=$(get_field $dev_idx_fld "$dev_row")
+        pol_idx=$(get_field_from_idx 'device' 'poller' "$dev_idx")
+        [ "$pol_idx" == '' -o "$pol_idx" == '0' ] && continue
+        type=$(translate_type $(get_field $dev_typ_fld "$dev_row"))
+        devices+="$sep$type"
+        sep=' '
+    done
+
+    # See if there is any server with poller assigned, means adding SYS
+    lp_srv_idx=1
+    stv_sys=''
+    while [ "$lp_srv_idx" -le "$srv_num" ]; do
+        srv_row="${srv_rows[$lp_srv_idx]}"   # Readability
+        ((lp_srv_idx++))
+
+        srv_idx=$(get_field $srv_idx_fld "$srv_row")
+        pol_idx=$(get_field_from_idx 'server' 'serverPoller' "$srv_idx")
+        [ "$pol_idx" == '' -o "$pol_idx" == '0' ] && continue
+        stv_sys='SYS'
+        devices+="$sep$stv_sys"
+        break
+    done
+
+    # Now make the unique list
+    devices="$(echo -n "$devices" | tr ' ' '\n' | sort |uniq | tr '\n' ' ' | sed 's/ $//')"
+    stv_cfg="${nl}[cfg/STV]${nl}devices         = '$devices'"
+fi
+
+# We have an LGR collect extra data.
+lgr_cfg=''
+if [ $has_lgr == 1 ]; then
+    reports=''
+    sep=''
+    # This is kind of stupid but I do not know how many reports will be added
+    # in the future and I don't want to change the script for every added one.
+    # Therefore just loop from 0..99 which has to be 2 digits
+    # The reports are installed in /opt/TextPass/LGR/R<>/reports/report<nn>.sh
+    # Where R<> seems to refer to the LGR version though it is bound to the 
+    # report as well (what if only LGR updated). Therefore there is a risk
+    # that multiple left over reports exist. In this case just select all
+    # we can find.
+    for dir in $(ls -d /opt/TextPass/LGR/R*); do # Not good if multiple dirs, but there could
+        for i in {0..99}; do
+            repno="$(printf "%02d" "$i")"
+            if [ -e $dir/reports/report$repno.sh ]; then
+                reports+="$sep$repno"
+                sep=' '
+            fi
+        done
+    done
+    if [ "$reports" != '' ]; then
+        reports="$(echo -n "$reports" | tr ' ' '\n' | sort | uniq | tr '\n' ' ' | sed -r 's/ *$//')"
+        lgr_cfg="${nl}[cfg/LGR]${nl}reports         = '$reports'"
+    fi
+fi
+    
+#
+# So far so good, so lets start with the file
+#
+echo "Starting to create: '$data_file'"
+if [ -f "$data_file" ]; then    # Make one backup version
+    /bin/mv "$data_file" "$data_file.bck"
+    echo "Made a backup of existing file to '$data_file.bck'"
+fi
+echo "$com_sep
+# Customer specific data set generated by generate_boot_data. The data has
+# been extracted using the MGR network layout information. Some extra help 
+# information has been stripped. please refer to original templates.
+#
+# Please check variable with comments with TODO and/or <names> as it means these 
+# have ti be filled in after the generation process.
+#
+# (c) Copyright NewNet $(date)
+#
+$com_sep
+
+[automate]
+run_type        = 'upgrade'
+download_srv    = '$down_srv'          # Download server, if needed. Empty if NMM SW is supplied differently.
+skip_run_check  = '0'                  # 1 will continue the store_All_running step even if not all running
+
+[generic]
+ntp_server      = '$ntp_srv'           # Define to enable NTP verification
+os_tz           = '$os_tz'             # Time zone used by OS, needed for reconfigure
+
+[backup]
+mount_points    = '/backup /data /dblgp /dbspf'   # Order of preferred mount-points, not being the OS disk.
+link_dir        = '/backup_data'                  # The main link (created) which may not be a dir on the root disk (will be verified)     
+dir             = \"\$BCK_link_dir/tpbackup\"     # The directory to use for the backup data  
+skip_db         = '$skip_db'                      # List of components to skip db backup for, <space> separated usefull options: AMS LGP MGR PBC SPFCORE STV
+skip_mysql_dir  = '0'                             # Set this parameter to 1 to skip the backup of mysql directory
+
+[iso/NMM-SW]
+file            = '$sw_iso'                       # The version to install after upgrade. 
+md5             = '$sw_md5'                       # MD5 should match the file.
+$lgr_cfg
+$mgr_cfg
+$stv_cfg
+" > "$data_file"
+
+
+outp="$com_sep
+# Discovered nodes and components.
+
+"
+rtr_type=''
+has_rtr=0
+has_pbc=0
+fnd_us=0            # Will be set if we found us. Some older systems do not have the MGR defined as a server
+lp_srv_idx=1
+while [ "$lp_srv_idx" -le "$srv_num" ]; do
+    srv_row="${srv_rows[$lp_srv_idx]}"   # Readability
+    ((lp_srv_idx++))
+
+    loc_pollers=''
+    psep=''
+
+    if [ "$srv_row" != '' ]; then       # Normal row
+        srv_idx=$(get_field $srv_idx_fld "$srv_row")
+        [ "$(get_field $srv_dom_fld "$srv_row")" != $dom_idx ] && continue # Not our domain
+        srv_name=$(get_field $srv_nam_fld "$srv_row")
+        srv_ip=$(get_field $srv_ip_fld "$srv_row")
+
+        # Check for SYS poller on this node
+        pol_idx=$(get_field_from_idx 'server' 'serverPoller' "$srv_idx")
+        if [ "$pol_idx" != '' -a "$pol_idx" != '0' ]; then
+            loc_pollers='SYS'
+            psep=' '
+        fi
+    elif [ $fnd_us == 0 ]; then         # Empty row Check if MGR (us) is already found (somtiem MGR not defined as node, no SYS poller).
+        srv_idx=''
+        srv_name="$our_hname"
+        srv_ip="$our_ip"
+    else
+        continue                        # MGR already found
+    fi
+
+
+    ext_comp=''
+    reach=$(ping -c1 -w2 -q $srv_ip | grep " 0% packet loss")
+    if [ "$reach" != '' ]; then
+        # Get the system serial number/hostname, lets hope keys are exchanged
+        output="$(echo "tp_lic_show_serial; echo \"Hostname: \$(hostname)\"" | su - $tp_usr -c "ssh $srv_ip bash -s -l")"
+        serial="$(echo -n "$output" | grep 'System-Serial Number:' | egrep -o ': [a-zA-Z0-9]*$')"
+        serial=${serial:2}
+        if [ "$serial" == '' ]; then
+            echo "Could not retrieve serial number for '$srv_name', please correct later."
+            serial='<find correct serial number using e.g. tp_lic_show_serial>'
+        fi
+        hostn="$(echo -n "$output" | grep 'Hostname:' | egrep -o ': [a-zA-Z0-9_\-]*$')"
+        hostn=${hostn:2}
+        if [ "$hostn" == '' ]; then
+            echo "Could not retrieve hostname for '$srv_name', please correct later."
+            hostn='<find correct hostname using e.g. hostname>'
+        fi
+    else
+        echo "Server '$srv_name' is not reachable, please correct later."
+        serial='<not reachable: find correct serial number using e.g. tp_lic_show_serial>'
+        hostn='<not reachable: find correct hostname using e.g. hostname>'
+        ext_comp=' # <not reachable: some none managed components like SSI might be missing>'
+    fi
+
+    # we need not to proceed if domain is not main and this MGR IP
+    if [ "$our_ip" == "$srv_ip" -a $dom_idx != 1 ]; then
+        continue # MGR is of main domain only
+    fi
+
+    
+    
+    outp+="[$srv_name]
+serial          = '$serial' # serial number
+oam_lan         = '$srv_ip'
+host            = '$hostn'
+"
+
+    # Now fill in the components
+    loc_comp=''
+    sep=''
+    if [ "$our_ip" == "$srv_ip" ]; then     # This currently check for OAM master only
+        loc_comp+="$loc_pkg"
+        [ "$loc_pkg" != '' ] && sep=' '
+        fnd_us=1
+    fi
+
+    lp_dev_idx=1
+    while [ "$lp_dev_idx" -lt "$dev_num" ]; do
+        dev_row="${dev_rows[$lp_dev_idx]}"   # Readability
+        ((lp_dev_idx++))
+
+        dev_idx=$(get_field $dev_idx_fld "$dev_row")
+        pol_idx="$(get_field_from_idx 'device' 'poller' "$dev_idx")"
+        if [ "$(get_field "$dev_dom_fld"      "$dev_row")" != $dom_idx ] || \
+           [ "$(get_field "$dev_ip_fld"       "$dev_row")" != $srv_ip  -a "$dev_ip_fld"      != '' ] || \
+           [ "$(get_field "$dev_srv_idx_fld"  "$dev_row")" != $srv_idx -a "$dev_srv_idx_fld" != '' ] ; then
+            continue        # Not our device
+        fi
+
+        type=$(translate_type $(get_field $dev_typ_fld "$dev_row"))
+        loc_comp+="$sep$type"
+        sep=' '
+
+        if [ "$type" == 'PBC' ]; then
+            has_pbc=1       # Currently no auto recover of DB type could be done though
+        elif [ "$type" == 'RTR' -a "$rtr_type" == '' -a "$reach" != '' ]; then      # Only discover RTR once
+            has_rtr=1
+            # Get the link to textpass executable to define the type. This assumes all instance has the same as well!
+            output="$(echo "readlink -e /usr/TextPass/bin/textpass" | su - $tp_usr -c "ssh $srv_ip bash -s -l")"
+            case $(basename "$output") in
+                textpass_hsl) rtr_type='ADAX'                   ; ;;  # Curently HDC3 is the only supported ADAX
+                textpass_nsl) rtr_type='<NSL not supported yet>'; ;;
+                textpass_sigtran) rtr_type='SIGTRAN'            ; ;;
+                '')                                             : ;; # No output try next
+                *) rtr_type='<Unsupported type '$(basename "$output")', set correct type later>'; ;;
+            esac
+        fi
+
+        # Found an associated poller, check it before adding it
+        if [ "$pol_idx" != '' -a "$pol_idx" != '0' ]; then
+            pol_ip="$(get_field_from_idx 'poller' 'hostName' "$pol_idx")"
+            if [ "$pol_ip" == '' ]; then
+                echo "Could not collect pollerIp belonging to $type@$srv_ip(pollerIndex $pol_idx). ignoring"
+            elif [ "$pol_ip" != "$srv_ip" ]; then
+                echo "Warning the assigned pollerIp (pollerIndex $pol_idx) does not math the serverIp
+'$pol_ip' != '$srv_ip'. Unsupported setup, ignoring polled device $type@$srv_ip"
+            else
+                loc_pollers+="$psep$type"
+                psep=' '
+            fi
+        fi
+    done
+
+    # Now fnd any components not managed by the MGR. THis will only work if the node is reachable
+    # and it is based on that fact if it installed, currently not based if configured.
+    if [ "$reach" != '' ]; then
+        output="$(echo "rpm -qa $pkg_not_mged_mgr" | su - $tp_usr -c "ssh $srv_ip bash -s -l")"
+        for ent in $ent_not_mged_mgr; do    # not smartest but easiest lookup
+            if [ "$(echo -n "$output" | grep "^TextPass$ent")" != '' ]; then
+                loc_comp+="$sep$ent"
+                sep=' '
+            fi
+        done
+    fi
+
+    outp+="comp            = '$loc_comp"
+
+    # See if we have to include a poller. We do this by looking at the current pollerTable
+    # Pollers in adminstate inactive will not be added, but a warning will be given
+    has_pol=0
+    lp_pol_idx=1
+    while [ $has_stv == 1 -a "$lp_pol_idx" -lt "$pol_num" ]; do
+        pol_row="${pol_rows[$lp_pol_idx]}"   # Readability
+        ((lp_pol_idx++))
+
+        if [ "$(get_field "$pol_dom_fld"      "$pol_row")" != $dom_idx ] || \
+           [ "$(get_field "$pol_ip_fld"       "$pol_row")" != $srv_ip   ]; then
+            continue        # Not our device
+        fi
+        if [ "$(get_field "$pol_ast_fld"   "$pol_row")" != '1'   ]; then
+            echo "Warning found a non active poller on '$srv_name', will be ignored!"
+        else
+            outp+="${sep}STVPol"    # Not a real local comp
+            sep=' '                 # Just for completeness currently STV is always last
+            has_pol=1
+        fi
+        break               #  There should be onlt one  1 ip for this poller *at the moment so stop searching
+    done
+    
+    outp+="'$ext_comp$nl"        # Write out the comp variable
+
+    # See if we have to exclude pollers, check all the devices, find in list, if given does
+    # not have poller then exclude it
+    if [ $has_pol == 1 -a "$devices" != '' ]; then
+        [ "$loc_comp" != '' ] && loc_sys=" $stv_sys" || loc_sys="$stv_sys"
+        excl_pol="$(echo -n "$loc_comp$loc_sys" | tr ' ' '\n' | grep "$(echo -n "$devices" | tr ' ' '\n')" | grep -v "$(echo -n "$loc_pollers" | tr ' ' '\n')" | tr '\n' ' ' | sed 's/ $//')"
+        [ "$excl_pol" != '' ] && outp+="exclude_pollers = '$excl_pol'$nl"
+    fi
+
+    outp+="$nl"
+done
+
+# 
+# Write out the OAM section
+#
+echo "[cfg/OAM]
+master          = '$our_hname'
+def_domain      = '$oam_def_domain'"                                            >> "$data_file"
+if [ "$oam_def_domain" != "$oam_domains" ]; then    # More then 1 domain need to add it
+    echo "domains         = '$oam_domains'"                                     >> "$data_file"
+fi
+echo ""                                                                         >> "$data_file"
+
+#
+# Write out the data (stored to keep a logical order).
+#
+if [ $has_rtr != 0 ]; then
+    rtr_type=${rtr_type:-<could not discover type, set correct type later>}
+    echo "[cfg/RTR]
+ss7_link_type   = '$rtr_type'                     # Either SIGTRAN or ADAX
+"                                                                               >> "$data_file"
+fi
+
+if [ $has_pbc != 0 ]; then
+    echo "[cfg/PBC]"                                                            >> "$data_file"
+    echo $int_sep
+    echo "PBC found, please select a database type for the PBC:"
+    select type in ldap mysql oracle no_db; do
+        if [[ -n $type ]]; then
+            echo "db_type         = '$type'
+"                                                                               >> "$data_file"
+            break
+        else
+            echo "invalid input, please retry."
+        fi
+    done
+    echo $int_sep
+fi
+
+echo "$outp"                                                                    >> "$data_file"
+
+#
+# The file has been created lets do an automatic check for things to add
+#  
+lines="$(grep -n '.*=.*<.*>.*#' "$data_file")"
+if [ "$lines" != '' ]; then
+    echo "File '$data_file' has been created, it is not finished yet!"
+    echo "Remember the following lines has to be filled in:"
+    echo "$lines"
+else
+    echo "File '$data_file' has been fully created."
+fi
+echo "$lay_sep"
+
+upgr_step='Step-Upgrade-Element-Single.cfg'
+step_file="$etc_dir/$upgr_step"
+base_data=$(basename $data_file)
+
+if [ ! -e "$step_file" ]; then
+    echo $int_sep 
+    echo "Warning: Steps file '$step_file' has not been found."
+    echo "please fix on all nodes or use a special one before continuing."
+    echo $int_sep 
+    step_file='<specify you own file>'
+fi
+
+# Do not deactivate code is prepared, but deactivating might cause problem if OAM was not run.
+# disable_tp_shell_user
+
+echo "
+$lay_sep
+The following steps need to be done to upgrade a specific node:
+* Make sure TextPassAutomate and TextPassBaseline packages are installed.
+* Make sure the '$data_file' is copied to /var/Automate/etc
+* Run automate tool e.g. as follows:
+# automate -s $step_file -d $etc_dir/$base_data --restart
+* IMPORTANT NOTE: Change step file reference in case others steps are needed.
+$lay_sep"
+
+exit 0  
+ 

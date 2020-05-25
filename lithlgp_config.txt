@@ -1,0 +1,89 @@
+<!--
+    Sample for the host-specific configuration file for the TextPass LGP
+    (c) Copyright 2005-2013 NewNet
+
+    $Id: hostname_config.txt_template_lgp,v 1.2 2013/01/11 10:07:48 n2shar10 Exp $
+-->
+
+<tpconfig
+    ipaddress="10.183.141.209"
+    countrycode="31"
+    runtextpassprocess="false"
+    runtpfclientprocess="true"
+    runtextlgpprocess="true"
+    runmgrdprocess="true"
+
+    lgpnodename="lithlgp"
+    lgpstaticweight="1"
+    lgploadertimeoutinterval="120"
+    lgpaliveinterval="15"
+    lgppollstart="0"
+    lgppollstop="0"
+    lgppollperiod="3"
+    lgplocallogdir="/var/TextPass/LGP/"
+    lgpdbuser="LGPuser"
+    lgpdbpassword="LGPuser123"
+    lgpdbdatabase="lgp"
+    lgpdbport="3306"
+    lgpdbcleanolderthan="720"
+    lgpdbclean="0100"
+    lgpmaxmastercollectorwait="300"
+    lgpstartupwait="120"
+    lgprecycleinterval="120"
+    lgpmaxloadtime="60"
+    lgpmaxmasterrun="1800"
+    lgptransclean="1"
+    lgpdoneclean="0"
+    lgpmaxcollectorrun="1800"
+    lgpasndisablefields=""
+    lgploadedrestartwaitinterval="60"
+    lgpalertdelay="15"
+    lgpmaxnumberof="10"
+    lgpquerymaxwait="300"
+    lgpquerybacklog="10"
+    lgpquerygeneratesqllogs="false"
+    lgpquerysqllogspath="/var/TextPass/LGP/sql/sql.log"
+    lgpfiletransferprotocol="sftp"
+    >
+
+    <lgprouternode
+        name="10.183.141.210"
+        dir="/var/TextPass/log/available"
+        user="textpass"        password="TextPass"
+        pattern=".*\.dat"
+    />
+
+    <lgprouternode
+        name="10.183.141.212"
+        dir="/var/TextPass/log/available"
+        user="textpass"        password="TextPass"
+        pattern=".*\.dat"
+    />
+
+	<lgprouternode
+        name="10.183.141.215"
+        dir="/var/TextPass/log/available"
+        user="textpass"        password="TextPass"
+        pattern=".*\.dat"
+    />
+
+	<lgprouternode
+        name="10.183.141.216"
+        dir="/var/TextPass/log/available"
+        user="textpass"        password="TextPass"
+        pattern=".*\.dat"
+    />
+
+    <fxferfile
+       localpath="/usr/TextPass/etc/common_config.txt"
+       serverpath="/usr/TextPass/etc/common_config.txt"
+       validate="/usr/TextPass/bin/tp_config --validatecommonconfig SERVERFILE"
+    />
+    <fxferfile
+        localpath="/usr/TextPass/etc/MGRdata.xml.gz"
+        serverpath="/usr/TextPass/etc/MGRdata.xml.10.183.141.209.gz"
+    />
+
+    <trapreceiver ipaddress="127.0.0.1" udpport="11173"/>
+
+</tpconfig>

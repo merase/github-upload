@@ -1,0 +1,32 @@
+###############################################################################
+# The steps configuration file will upgrade of the OS from a RH5 to RH6 
+# installation. The steps file should not be called directly but be called by 
+# the 'upgrade' step
+# (c) Copyright 2014-2015 NewNet
+# $Id: upgrade.1.Linux.RH5_0-RH7_0.steps,v 1.5 2015/06/18 11:16:38 fkok Exp $
+###############################################################################
+
+#
+# Make sure the new RHEL kick-start is installed before the system is rebooted
+#
+
+# Recover OS
+check_Disks             OS
+configure_Partitions    upgrade
+setup_Backup-Dir        mount
+recover                 OS GrpAndPwd-Files
+recover                 OS Host-Files
+recover                 OS DNS-Files
+recover                 OS SSH-Files
+recover                 OS NTP-Files
+recover_Network
+configure_Sys-Params
+configure_Time-Zone     OS
+configure_System-Log
+configure_Audit
+configure_Subscription  disable
+configure_Hosts-File    recover
+configure_IP-Routing
+configure_Core-File
+configure_File-Handles
+configure_Pre-linking

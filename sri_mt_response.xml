@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!DOCTYPE tester SYSTEM "tester.dtd">
+<tester>
+  <responses>
+    <moForwardSmResponse success="1"
+    />
+    <reportSmDeliveryStatusResponse success="1"
+    />
+    <sendRoutingInfoForSmResponse success="1"
+    msc="+313130001000"
+    imsi="20410??????????"
+    unknownSubscriber="0"
+    absentSubscriber="0"
+    />
+    <mtForwardSmResponse success="1"
+    unknownSubscriber="0"
+    absentSubscriber="0"
+    timeout="0"
+    />
+  </responses>
+</tester>
+

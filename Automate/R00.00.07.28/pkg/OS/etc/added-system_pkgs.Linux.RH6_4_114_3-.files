@@ -1,0 +1,27 @@
+#
+# A list with Packages which need to be added if passing by this kernel.
+# - It is a list with a single file name on each line.
+# - Comments (#) may be used at the start of the line only or behind a file
+# - Empty lines are ignore
+# - The file names should NOT include the version, OS release or Architecture
+#
+
+db4-cxx
+db4-devel
+gdbm-devel
+lzo
+p11-kit
+p11-kit-trust
+shared-mime-info
+snappy
+ca-certificates
+apr-util-ldap
+chrpath
+dejavu-fonts-common
+dejavu-lgc-sans-mono-fonts
+dejavu-sans-mono-fonts
+distcache
+fontpackages-filesystem
+python-setuptools
+rrdtool
+rrdtool-devel

@@ -1,0 +1,603 @@
+#!/bin/sh
+#  (c) Copyright 2017-2017 NewNet                 
+
+: <<=cut
+=script
+A script to help analyzing the log-files. Introduced as an attempt to make
+present the logs in a more readable format.
+
+DISCLAIMER: The original log-files are always the most complete ones.
+=version    $Id: log_help,v 1.3 2017/12/15 06:53:41 fkok Exp $
+=author     Frank.Kok@newnet.com
+
+=cut
+
+function show_usage_and_exit() {
+    local ec="$1"       # (M) The exit code to use
+
+    cat << EOF
+A tool to analyzing and process the Automate log-files available.
+This tool has to be run under root. To prevent issues in file permissions!
+-?        | --help         : Show this help usage.
+-l <file> | --log=<file>   : A given log file (located in the '$log_dir' dir. Omitted means current.
+-c <cmd>  | --cmd=<cmd>    : A command to execute, see <cmd> for more opt_info.
+-f <nr>   | --fnr=<nr>     : A file version number useful e.g. for cmd=[screen|warning|manual]
+-s <nr>   | --snr=<nr>     : Filter a specific step number (may include subs) e.g. for cmd=[cmds]
+
+Where <cmd> can have the following meanings:
+EOF
+    local idx=0
+    while [ $idx -lt $cmd_num ]; do # Addapt $-#s id length changes, (this is only a tool!)
+        printf "* %-7s : %s\n" "${cmd_name[$idx]}" "${cmd_help[$idx]}"
+        ((idx++))
+    done
+
+    echo "$nl$disclaim"
+    exit $ec
+}
+
+################################################################################
+# Static and dynamic configuration section
+#
+readonly def_IFS=$IFS
+readonly nl=$'\n'
+readonly tb=$'\t'
+readonly com_sep='################################################################################'
+readonly lay_sep='================================================================================'
+readonly int_sep='--------------------------------------------------------------------------------'
+readonly disclaim="DISCLAIMER : The original log-files are always the most complete ones."
+
+readonly aut_dir='/var/Automate'     # Should be standard!
+readonly log_dir="$aut_dir/log"
+readonly hlp_dir="$aut_dir/hlp"
+readonly upg_dir="$aut_dir/upg"
+
+readonly log_ext='log'
+
+readonly base_screen_copy="Screen-Copy.$log_ext"
+readonly base_warnings="Warnings.$log_ext"
+readonly base_manual_todo="Manual-Things-Todo.$log_ext"
+readonly base_failed_copy="Document-Failed-Step.$log_ext"
+
+# Copied from vars_gerenic as is.
+readonly COL_def='\e[0m'         # The default all attributes off
+readonly COL_def_fg='\e[39m'     # Default foreground color
+readonly COL_def_bg='\e[49m'     # Default background color
+readonly COL_ok='\e[32m'         # Green
+readonly COL_fail='\e[31m'       # Red
+readonly COL_info='\e[35m'       # Magenta
+readonly COL_todo='\e[43m'       # BG Yellow
+readonly COL_warn='\e[33m'       # Yellow
+readonly COL_blink='\e[5m'       # Only blink (Does not work for all terminals)
+readonly COL_bold='\e[1m'        # Bold
+readonly COL_undl='\e[4m'        # Underline
+readonly COL_dim='\e[2m'         # Dim text
+readonly COL_rev='\e[7m'         # Reverse
+readonly COL_hide='\e[8m'        # Hidden (Could be usefull for passwords)
+readonly COL_no_blink='\e[25m'   # Reset blink
+readonly COL_no_bold='\e[21m'    # Reset bold
+readonly COL_no_undl='\e[24m'    # Reset underline
+readonly COL_no_dim='\e[22m'     # Reset dim
+readonly COL_no_rev='\e[27m'     # Reset reverse
+readonly COL_no_hide='\e[28m'    # Reset hidden
+
+# Do not use associative array's, so put in a normal array.
+declare -a cmd_name
+declare -a cmd_help
+declare -a cmd_func
+
+# Defined the commands we support, the name is also used to define the function
+# to be called, which is show_cmd_<name>. Currently they shown as ordered. And I
+# started alphabetical.
+idx=-1  # Make sure lines cna be shift with editing the contents!
+((idx++)); cmd_name[$idx]='cmds'    ; cmd_help[$idx]="Show the commands (not all info) from a log-file (--snr supported)"
+((idx++)); cmd_name[$idx]='fail'    ; cmd_help[$idx]="Show the last help on a failed step (--fnr supported)"
+((idx++)); cmd_name[$idx]='full'    ; cmd_help[$idx]="Show the full log-file (just a cat)"
+((idx++)); cmd_name[$idx]='manual'  ; cmd_help[$idx]="Show the last Manual Things Todo log (--fnr supported)"
+((idx++)); cmd_name[$idx]='normal'  ; cmd_help[$idx]="Show the log-file but filtering some none important info. This is also the default."
+((idx++)); cmd_name[$idx]='screen'  ; cmd_help[$idx]="Show the last screen copy log (--fnr supported)"
+((idx++)); cmd_name[$idx]='state'   ; cmd_help[$idx]="Show the execute step-state information."
+((idx++)); cmd_name[$idx]='stack'   ; cmd_help[$idx]="Show the stack trace if any."
+((idx++)); cmd_name[$idx]='step'    ; cmd_help[$idx]="Show the logs for a specific step (--snr mandatory)."
+((idx++)); cmd_name[$idx]='upgrade' ; cmd_help[$idx]="Show the last generated upgrade plan."
+((idx++)); cmd_name[$idx]='warning' ; cmd_help[$idx]="Show the last warning log (--fnr supported)"
+readonly cmd_name
+readonly cmd_help
+readonly cmd_num=${#cmd_name[@]}
+
+# Check command line options
+opt_info=`getopt -o ?l:c:f:s: --long help,log:,cmd:,fnr:,snr: -- "$@"`
+if [ $? != 0 ]; then 
+    echo "Wrong usage, terminating..."
+    show_usage_and_exit 1
+fi
+
+log_file="$log_dir/Current-Logfile.$log_ext"
+par_log=''
+par_fnr=0
+par_snr=''
+
+# Read the command line options, overrules the default if needed
+eval set -- "$opt_info"
+while true; do
+  case "$1" in
+    '-?' | --help     ) show_usage_and_exit     ; shift   ;;
+    -l   | --log      ) par_log="$2"            ; shift 2 ;;
+    -c   | --cmd      ) par_cmd="$2"            ; shift 2 ;;
+    -f   | --fnr      ) par_fnr="$2"            ; shift 2 ;;  
+    -s   | --snr      ) par_snr="$2"            ; shift 2 ;;  
+    --                ) shift                   ; break   ;;
+    *                 )                           break   ;;
+  esac
+done
+
+################################################################################
+# Helper functions definitions
+#
+function echo_exit() {
+    echo "$1" 1>&2
+    exit 1
+}
+
+: <<=cut
+=func_frm
+Get a field from a given string. The separator is by default a '|' can be
+changed.
+=stdout
+The request field or empty if not found.
+=cut
+function get_field() {
+    local fld_num="$1"  # (M) The field number to retrieve (starts at 1), like -f from cut.
+    local str="$2"      # (M) The string tor retrieve from.
+    local sep="$3"      # (O) The optional separator (default to ' ') 
+
+    if [ "$sep" == '' ]; then
+        echo -n "$str$sep" | cut -d ' ' -f $fld_num
+    elif [ "$sep" == '\t' ]; then
+        echo -n "$str$tb" | cut -f $fld_num
+    else
+        echo -n "$str$sep" | cut -d "$sep" -f $fld_num
+    fi
+}
+
+# More extensive checking might be added here. Or log-file selection or so
+# This is not done centrally because not all command might need log-file
+function check_log_file() {
+    local file="$1"     # (M) The logfiel to check.
+
+    [ ! -r "$file" ] &&  echo_exit "Cannot read log-file: '$file'"
+    
+    echo "$lay_sep"
+    echo "== source file: $file"
+    [ "$par_cmd" != 'full' ] && echo "== $disclaim"
+    echo "$lay_sep"
+    echo ""
+}
+
+function filter_low_level() {
+    local file="$1"     # (M) The log-file to check.
+
+    # Filter out line who are not of much interest. Remember changes in the
+    # textual formatting, might change the filter! Adapt/add filters if initial
+    # ideas changed.
+    #
+    # Filtered items:
+    # -  Remove all successful function calls, fails will show.
+    #    * Commands within funciton calls will be shown.
+    # -  Reference to associative MAP. MAPS are only of interest for internal debugging.
+    # - Actions related to section files.
+
+    cat "$log_file" | grep -v                    \
+        -e 'Successful: func: called:'           \
+        -e 'Creating MAP data directory'         \
+        -e 'Clearing MAP data directory'         \
+        -e 'Clearing and Creating MAP data for'  \
+        -e 'Create sections vars file into'      \
+        -e 'Read sections vars from'
+}
+
+function filter_commands() {
+    local file="$1"     # (M) The log-file to check.
+    local snr="$2"      # (O) A specif step to show
+    local all_logs="$3" # (O) If set then other logs are also shown.
+
+    # So this has becoem more complex awk script then intended
+    # It does do the job in a single pass without the need to cache
+    #
+    # The initial reason was how to get the sub sections command outputs
+    #  this can theoecically work from a single starting point:
+    # awk '/^\[.* .*\]/{if (show == 1) exit} /^[^[]/{if (show == 1) print}  NR>6032{show=1}' /var/automate/log/test.log
+    #
+    # It is also higher performance then bash with cut etcs. So
+    # Left it for now
+    local expr='
+BEGIN { 
+    indent="" 
+    notime="          "
+    if (check_snr != "") {skip=1} else {skip=0}
+    show=0
+}
+/^[^\[]/ {
+    if (skip == 0 && show == 1) {
+        print notime "| " indent "  " $0
+    }
+}
+/tar -/ { show=0 } # Stop showing rest of backup files its a lot one should in normal log
+/^\[[0-9]*.* .*[^]]/ {
+    if (date == 0) {
+        sub(/^\[/, "", $1)
+        print "Log-file started on date : " $1 ", dates removed."
+        date=1
+    }
+    $1=""; sub($1 OFS, "")  # Removes full var!, numbering adjusted
+    time=gensub(/\]$/, "", "", $1)
+    $1=""; sub($1 OFS, "")
+    if ($1 == "cmd:" || $1 == "Outcome") {
+        show=1
+        if (skip == 1) { next }
+        task=$1
+        $1=""; sub($1 OFS, "")
+        outcome="(unknown)"
+        command=gensub(/.*(\[.*$)/, "\\1", "" $0)
+        if (task == "cmd:") {
+            if ($1 == "Successful:" ) {outcome="($? = 0)"} else {outcome="($? != 0)"}
+            comment=gensub(/.*\((.*)\).*\[.*$/, "\\1", "" $0)
+        } else if (task == "Outcome") {
+            outcome=$1 " " $2 " " $3
+            outcome=gensub(/:$/, "", "", outcome)
+            $1=""; sub($1 OFS, "")
+            $1=""; sub($1 OFS, "")
+            $1=""; sub($1 OFS, "")
+            comment=gensub(/.*\((.*)\).*\[.*$/, "\\1", "" $0)            
+        }
+        if (comment == "no-info" || comment == "") {
+            print time "| " indent outcome " : " command
+        } else {
+            nooutc=gensub(/./, " ", "g", outcome)
+            print time "| " indent nooutc " # " comment
+            $1=""; sub($1 OFS, "")  
+            print notime "| " indent outcome " : " command
+        }
+    } else if ($1 == "#") {
+        show=0
+        $1=""; sub($1 OFS, "")
+        snr=$1; $1=""; sub($1 OFS, "")
+        $1=""; sub($1 OFS, "")
+        state=$1; $1=""; sub($1 OFS, "")
+        if (state == "Processing:") {
+            if (check_snr != "" && snr == check_snr) { skip=0 }
+            if (skip == 1) { next }
+            print time "| " indent "Step " snr " : " $0
+            indent=indent "| "
+        } else if (state == "Finished:") {
+            if (skip == 1) { next }
+            status=gensub(/^.*\|/, "", "", $0)
+            sub(/\|.*$/, "", $0)
+            indent=gensub(/^\| /, "", "", indent)
+            print time "| " indent "Done " snr " : " $0 "[" status "]"
+            if (check_snr != "" && snr == check_snr) { skip=1 }
+        }
+    } else {
+        show=0
+        if (skip == 1 || show_all == "") { next }
+        print time "| " indent $0
+        show=1
+    }
+}'
+
+    if [ "$snr" == '' ]; then
+        awk "$expr" "$file"
+    elif [ "$all_logs" == '' ]; then
+        awk -v check_snr="$snr" "$expr" "$file"
+    else
+        awk -v check_snr="$snr" -v show_all="1" "$expr" "$file"
+    fi
+    
+}
+
+function filter_step_stat() {
+    local file="$1"     # (M) The log-file to check.
+
+    cat "$log_file" | grep -E '^.* # [0-9\-]* \| (Processing|Finished).*$'
+}
+
+function get_status() {
+    local status="$1"
+
+    local color
+    # Ooops fixed names translation
+    case "$status" in
+        TODO|PARTIAl)                   color=$COL_todo    ;;
+        PASSED|WAIT|DONE)               color=$COL_ok      ;;
+        SUBSTEPS)                       color="$COL_dim"   ;;
+        SHUTDOWN|REBOOT)                color="$COL_ok$COL_blink" ;;
+        FAILED|PENDING)                 color=$COL_fail    ;;
+        WARNING|MANUAL|LATER)           color=$COL_warn    ;;
+        NOT_FOUND)                      color=$COL_warn    ;;
+        'NOT APPLIC'|'NOT NEEDED'|INFO) color=$COL_info    ;;
+        *) color="$COL_fail"; status+='??'; ;;
+    esac
+
+    printf "$color%-10s$COL_def" "$status"
+}
+
+function get_rotate() {
+    local base="$1"
+    local fnr="$2"
+
+    echo -n "$log_dir/$base"            # zero will be the main
+    [ $fnr != 0 ] && echo -n ".$fnr"
+}
+
+function show_rotate_file() {
+    local base="$1"     # The file base to work on
+
+    local fnr=$par_fnr  # The start file, 0 = current
+    local pnr
+    local file
+    local title
+    local key
+    local older_nr;  local newer_nr;
+    local older_txt; local newer_txt;
+    
+    while [ 1 ]; do
+        file="$(get_rotate "$base" "$fnr")"
+        if [ ! -r  "$file" ]; then      # This should have been verified or is initial error
+            echo_exit "File '$file' not found/readable, please check parameter [--fnr] and/or existence."
+        fi
+
+        [ $fnr != 0 ] &&  title="Previous[$fnr]" || title="Last"
+        echo "$lay_sep${nl}Showing $title $base : '$file'$nl$int_sep"
+        echo -e "$(cat "$file")"
+        echo "$int_sep$nl"
+
+        # check if the files exit
+        older_nr=$((fnr + 1)); newer_nr=$((fnr - 1))
+        [ -e "$(get_rotate "$base" "$older_nr")" ] && older_txt='o=older, ' || older_txt=''
+        [ -e "$(get_rotate "$base" "$newer_nr")" ] && newer_txt='n=newer, ' || newer_txt=''
+        echo -n "Do you want to see others? (${newer_txt}${older_txt}e=exit)> "
+        pnr=$fnr
+        while  [ $pnr == $fnr ]; do
+            read -rs -n1 key
+            if [ "$?" == '0' ]; then
+                # Some special key handling
+                case $key in
+                    o) [ "$older_txt" != '' ] && ((fnr++)); ;; 
+                    n) [ "$newer_txt" != '' ] && ((fnr--)); ;;
+                    e) echo "${nl}Exit upon request."; break 2 ; ;; 
+                esac
+            fi
+        done
+        echo "$nl"
+    done
+}
+
+: <<=cut
+=func_int
+Will store the date information from a line (if available)
+=set STR_line
+=set STR_data
+=set STR_time
+=cut
+function store_date() {
+    local line="$1"     # The line to analyze 
+
+    # get and chek time marker (all to remove from line later
+    local marker="$(echo -n "$line" | egrep -o '^\[[^]]*\] ')"
+    if [ "$marker" != '' ]; then
+        STR_line="${line:${#marker}}"     # Store rest of the line
+        marker="${marker:1}"        # Remove [ 
+        local len=${#marker}; ((len--)); ((len--))
+        marker="${marker:0:$len}"   # Remove '] '
+        STR_date="$(get_field 1 "$marker")"
+        STR_time="$(get_field 2 "$marker")"
+    else
+        STR_line="$line"        # Store line as is
+        STR_date=''
+        STR_time=''
+    fi
+}    
+
+: <<=cut
+=func_int
+Show all steps of current depth.
+Uses step_* from higher function
+=cut
+function show_step() {
+    local ind="$1"
+
+    local cur_snr=''
+    local cur_step=''
+    local start_time
+    local st_scol=''
+    local st_ecol=''
+
+    while [ $step_idx -lt $step_num ]; do
+        local line="${step_lines[$step_idx]}"
+        if [ "$line" == '' ] || [ "$line" == "$nl" ]; then   # The file could be empty
+            echo "${ind}INFO: Empty line found. No steps in this file?"
+            ((step_idx++))
+            continue
+        fi
+
+        store_date "$line"
+        if [ "$STR_date" == '' ]; then
+            echo "${ind}WARNING: Unexpected format [steps]: [$line]"
+            ((step_idx++))      # skip it avoid loop
+       else
+            local snr="$( get_field 2 "$STR_line")"
+            local proc="$(get_field 2 "$STR_line" '|')"
+            proc="$(get_field 1 "${proc:1}" ':')"
+            case "$proc" in
+                'Processing')
+                    if [ "$cur_snr" == ''  ] ; then
+                        start_time="$STR_time"
+                        cur_snr="$snr"
+                        cur_step="$(get_field 5- "$STR_line")"
+                        ((step_idx++))
+                    else
+                        printf "%-10s %-10s .. %-10s %-10s $ind$cur_step\n" "$cur_snr" "$start_time" '' "$(get_status 'SUBSTEPS')"  
+                        show_step "$ind| "
+                        st_scol="$COL_dim"; st_ecol="$COL_no_dim"
+                    fi
+                    ;;
+                'Finished')
+                    if [ "$cur_snr" == '' ] && [ "$ind" != '' ]; then
+                        return      # Finished this depth
+                    elif [ "$cur_snr" != "$snr" ]; then
+                        echo "${ind}WARNING: Start point not found [$cur_snr]: [$line]"
+                    else
+                        errno="$(get_field 3 "$errno")"
+                        local stat="$(get_field 4 "$STR_line" '|')"
+                        printf "%-10s $st_scol%-10s$st_ecol -> %-10s %-10s $ind$cur_step\n" "$cur_snr" "$start_time" "$STR_time"  "$(get_status "$stat")"
+                    fi
+                    cur_snr=''; cur_step=''
+                    st_scol=''; st_ecol=''
+                    substeps=0
+                    ((step_idx++))
+                    ;;
+                *)  echo "${ind}WARNING: File contains unexpected process state [$proc]: [$line]"
+                    ((step_idx++))
+                    ;;
+            esac
+        fi
+    done
+    if [ "$cur_snr" != '' ]; then
+        printf "%-10s $st_scol%-10s$st_ecol -> %-10s %-10s $ind$cur_step result : $stat\n" "$cur_snr" "$start_time"  '' "$(get_status  'PENDING')"
+    fi
+}
+
+function show_cmd_cmds() {
+    check_log_file "$log_file"
+    filter_commands "$log_file" "$par_snr"
+}
+
+function show_cmd_normal() {
+    check_log_file "$log_file"
+    filter_low_level "$log_file"
+}
+
+function show_cmd_screen() {
+    show_rotate_file "$base_screen_copy"
+}
+
+function show_cmd_warning() {
+    show_rotate_file "$base_warnings"
+}
+
+function show_cmd_manual() {
+    show_rotate_file "$base_manual_todo"
+}
+
+function show_cmd_fail() {
+    show_rotate_file "$base_failed_copy"
+}
+
+function show_cmd_state() {
+    check_log_file "$log_file"
+
+    # ThEe local step_* are used as accessible by lower functions. Make processing easier
+    local -a step_lines
+    readarray step_lines <<< "$(filter_step_stat "$log_file")"
+    local step_num=${#step_lines[@]}
+    local step_idx=0
+
+    show_step               # No indent first depth
+
+    # Show all non processed lines
+    while [ $step_idx -lt $step_num ]; do
+        local line="${lines[$idx]}"
+        echo "${ind}WARNING: Not processed: [$line]"
+        ((step_idx++))
+    done
+}
+
+function show_cmd_step() {
+    [ "$par_snr" == '' ] &&  echo_exit "Parameter --snr=<step> is mandatory for --cmd=$par_cmd"
+    
+    check_log_file "$log_file"
+    filter_commands "$log_file" "$par_snr" 'all'
+}
+
+function show_cmd_upgrade() {
+    local file
+
+    # Look like a lopp to all, just process the first
+    for file in $(ls -t $upg_dir/*.plan); do
+        [ ! -r "$file" ] && continue
+        echo "$lay_sep
+Information about the last created upgrade plan.
+File : $file
+$int_sep"
+        cat "$file" | column -t
+        echo "$int_sep"
+        break                           # Just stop as w've found the last
+    done
+}
+
+function show_cmd_full() {
+    check_log_file "$log_file"
+    cat "$log_file"
+}
+
+function show_cmd_stack() {
+    check_log_file "$log_file"
+    local expr='
+BEGIN { 
+    show=0
+}
+/Current Call Flow/ {
+    show=1
+}
+/.*/ {
+    if (show == 1) {
+        print $0
+    }
+}
+/============================================================/ {
+    if (show == 1) {
+        show=0
+    }
+}'
+    awk "$expr" "$log_file"
+}
+
+################################################################################
+# main program starts from here
+#
+
+# Check whether script is being run as root
+[ $EUID -ne 0 ] && echo_exit "This tool must be run as root!"
+
+#
+# Additional parameter checking
+#
+if [ "$par_log" != '' ]; then
+    log_file="$par_log" # Assume full file, otherwise add dir
+    [ "$(basename "$par_log")" == "$par_log" ] && log_file="$log_dir/$par_log" 
+fi
+par_cmd="${par_cmd:-normal}"
+
+if [ "$(echo -n "$par_fnr" | egrep -o '[0-9]*')" != "$par_fnr" ]; then
+    echo_exit "Parameter fnr='$par_fnr' contains non-digits"
+fi
+
+
+fnd=0
+idx=0
+while [ $idx -lt $cmd_num ]; do
+    if [ "$par_cmd" == "${cmd_name[$idx]}" ]; then
+        fnd=1
+        show_cmd_$par_cmd       # Call the function no pars
+        break;
+    fi
+    ((idx++))
+done
+
+if [ $fnd == 0 ]; then
+    echo "Did not recognize given command '$par_cmd', terminating..."
+    show_usage_and_exit 1
+fi
+
+exit 0  
+ 

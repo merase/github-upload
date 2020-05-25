@@ -1,0 +1,220 @@
+#!/bin/sh
+
+function show_usage_and_exit() {
+    local ec="$1"       # (M) The exit code to use
+
+    cat << EOF
+
+This script will monitor the installation progress for the automate installation.
+If the data_file is not given then the default automate configuration will be 
+tried  which is located in 'store_file'.
+
+Command line parameter are:
+-?              | --help               : Show this help usage
+-d <data_file>  | --data=<data_file>   : The data file with the default configuration.
+                | --now                : Directly start monitoring do not wait
+-n <nodes>      | --nodes=<nodes>      : Specific nodes to monitor (space separated)
+EOF
+    exit $ec
+}
+
+function _exit(){
+    local ec="$1"       # (M) The exit code to use. 1 also shows usage
+    local str="$2"      # (M) The string to log
+
+    echo "$str, terminating..."
+    if [ "$ec" == '1' ]; then
+        show_usage_and_exit $ec
+    fi
+    exit $ec
+}
+
+declare -a MON_nodes
+declare    MON_idx=0
+
+# I cannot/do not want to include whole library so have to do some simplistic 
+# way to get the data ourselfs
+function read_data_file() {
+    local data_file="$1"    # The data file to read.
+
+    # This basically get the appropriate section and filter only the needed fields.
+    # Connection might not be possible on hostname yet so we have to figure
+    # out the oam lan
+    local cfg=`cat $data_file | grep -e "^\[.*\]" -e "^oam_lan" -e "^bond" -e "^eth"`          # Get interested data
+    cfg=`echo "$cfg" | grep -v -e "\[automate\]" -e "^\[generic\]" -e "^\[backup\]" -e "^\[iso/" -e "^\[cfg/" -e "^\[dis/"` # Filter all none wanted sections
+    cfg=`echo "$cfg" | tr -d "'" | tr -d '"' | tr -s ' '`   # remove quotes and excessive spaces
+
+    # Now read the temp file and filter the sections
+    local line
+    local sect=''
+    local cur_sect=''
+    local oam_lan=''
+    local oam_ip=''
+    local fld
+    local idx=0
+    IFS=''
+    while read line; do
+        sect=`echo "$line" | egrep -o "^\[[0-9a-zA-Z_/\-]+\]"`
+        if [ "$sect" != '' ]; then
+            if [ "$cur_sect" != '' ]; then
+                if [ "$oam_lan" != '' -a "$oam_ip" == '' ]; then
+                    # Add oam_lan in the hop it is an ip/host
+                    MON_nodes[$MON_idx]="$cur_sect:$oam_lan"
+                    ((MON_idx++))
+                else
+                    _exit 2 "Problem reading data file (unfinished section)"
+                fi
+            fi
+            cur_sect=`echo "$sect" | egrep -o "[0-9a-zA-Z_/\-]+"`
+            oam_lan=''
+            oam_ip=''
+        fi
+        if [ "$cur_sect" != '' ]; then
+            fld=`echo -n "$line" | cut -d ' ' -f1`
+            if [ "$fld" == 'oam_lan' ]; then
+                oam_lan=`echo -n "$line" | cut -d ' ' -f3`
+            fi
+            # This is an order problem accept it for now!
+            if [ "$oam_lan" != '' -a "$fld" == "$oam_lan" ]; then
+                oam_ip=`echo -n "$line" | cut -d ' ' -f3`
+                # We have enough info add it
+                MON_nodes[$MON_idx]="$cur_sect:$oam_ip"
+                ((MON_idx++))
+                cur_sect=''
+            fi
+        fi
+    done <<< $cfg  
+    IFS=$def_IFS
+
+    if [ "$cur_sect" != '' -a  "$oam_lan" != '' -a "$oam_ip" == '' ]; then
+        # Add oam_lan in the hop it is an ip/host
+        MON_nodes[$MON_idx]="$cur_sect:$oam_lan"
+        ((MON_idx++))
+    else
+        _exit 2 "Problem reading data file (unfinished section)"
+    fi
+}
+
+# Some global variable
+readonly def_IFS=$IFS       # Safe the default IFS setting
+readonly store_file='/var/Automate/etc/.automate_storage'
+
+# Check command line options
+opt_info=`getopt -o ?d:n: --long now,data:,nodes:,help -- "$@"`
+if [ $? != 0 ]; then 
+    _exit 1 "Wrong usage"
+fi
+
+#
+# Command line parameter overrule any info found in store file!
+#
+flag_now=0
+eval set -- "$opt_info"
+while true; do
+  case "$1" in
+    '-?' | --help) show_usage_and_exit; shift   ;;
+    -d | --data  ) par_data_file="$2" ; shift 2 ;;
+         --now   ) fal_now='1'        ; shift 1 ;;
+    -n | --nodes ) par_nodes="$2"     ; shift 2 ;;
+    --           ) shift;               break   ;;
+    *            )                      break   ;;
+  esac
+done
+
+#
+# We have to discover the library path which cannot be done in a helper script
+#
+full_exec=$(readlink -f $0)
+exec_path=`dirname $full_exec`
+exp_dir='scripts'
+flt_dir=`echo "$exec_path" | egrep -o "/$exp_dir\$"`
+if [ "$flt_dir" != "/$exp_dir" ]; then
+    _exit 2 "Cannot locate $exp_dir directory, did $0 move to another location?"
+fi
+mon_script="$exec_path/lib/monitor_log.sh"
+
+#
+# Now do some necessities to check. Currently we always need screen and ncat
+#
+if [ ! -e $mon_script ]; then
+    _exit 2 "Did not find monitor helper script ($mon_script)"
+elif [ ! -x $mon_script ]; then
+    _exit 2 "Monitor helper script ($mon_script) is not executable"
+fi
+which screen >/dev/null 2>&1
+if [ $? != 0 ]; then
+    _exit 2 "'screen' utility is not available"
+fi
+which ncat >/dev/null 2>&1
+if [ $? != 0 ]; then
+    _exit 2 "ncat' utility is not available"
+fi
+
+if [ "$par_data_file" != '' ]; then
+    STR_data_file=$par_data_file
+elif [ -x $store_file ]; then
+    . $store_file
+else
+    _exit 1 'No Data file given'
+fi
+read_data_file $STR_data_file
+
+
+#
+# Now create a screen with a specific session
+# We do this by creating a new .screenrc file
+#
+readonly ses='monitor'
+readonly rc="$HOME/.screenrc"
+
+if [ "$(grep '# Automate' $rc)" == '' ]; then
+    /bin/mv $rc $rc.bak
+fi
+
+echo "# Automate : file created for monitoring the automate logs.
+bindkey -k F2 quit" > $rc
+scr_idx=1
+idx=0
+last_idx=0
+while [ "$idx" -lt "$MON_idx" ]; do
+    node=$(echo -n "${MON_nodes[$idx]}" | cut -d':' -f1)
+    if [ "$par_nodes" == '' -o "$(echo -n "$par_nodes" | grep "$node")" != '' ]; then 
+        if [ "$scr_idx" != '1' ]; then
+            echo "split" >> $rc
+            echo "focus down" >> $rc
+        fi
+
+        last_idx=$idx
+        ip=$(echo -n "${MON_nodes[$idx]}" | cut -d':' -f2)
+        # This is a work arround to show a proper title
+        tscript="/tmp/Monitoring: $node"
+        ln -sf $mon_script "$tscript" 
+        echo "screen $scr_idx '$tscript' $ip" >> $rc
+        ((scr_idx++))
+    fi
+    ((idx++))
+done
+
+if [ $scr_idx == 1 ]; then
+    echo "No nodes to monitor. Was correct node filter used ($par_nodes)?"
+    exit 0
+elif [ $scr_idx == 2 ]; then
+    # Only a single node don't use screen but just output stuff with regular scroll-back
+    . $mon_script $(echo -n "${MON_nodes[$last_idx]}" | cut -d':' -f2)
+    exit 0
+fi
+
+# Only reached if more than 1 node is monitored, in which case we actually use screen
+if [ "$flag_now" == '0' ]; then
+echo "The monitor process will start shortly. 
+It will use the screen utility to show. 
+* Press F12 + Y to quit.
+* Do not use Ctrl+C"
+sleep 10
+fi
+
+# This will give control to screen until it quits with C-a + C-\ or F12
+screen -S $ses
+
+exit 0
+ 

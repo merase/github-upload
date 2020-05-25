@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!DOCTYPE tester SYSTEM "tester.dtd">
+<tester>
+  <responses>
+    <moForwardSmResponse success="1"/>
+    <reportSmDeliveryStatusResponse success="1"/>
+    <sendRoutingInfoForSmResponse success="1" msc="+313130001000" imsi="20410??????????"  unknownSubscriber="0" absentSubscriber="0"/>
+    <mtForwardSmResponse success="1" unknownSubscriber="0" absentSubscriber="0" systemFailure="0"/>
+  </responses>
+ <requests>
+  <defaults networkIndicator="2" hlrPointCode="5350"
+   mscPointCode="141" routing="gt"
+   mapVersion="2" smsc="+966505031999" msc="+313130001000"
+   />
+  <mtRequest name="mtfsm" smscPointCode="5137" messageContent="This is MT test message"
+   mapVersion="2" recipient="+313138681062" originator="+966550504695"
+   />
+ </requests>
+<load>
+     <oneshot request="mtfsm" timeOffset="1"/>
+</load>
+</tester>

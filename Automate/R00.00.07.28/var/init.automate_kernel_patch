@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+# ----------------------------------------------------------------------------
+#
+#  (c) Copyright 2001-2011 NewNet
+# 
+#  This software is proprietary to and embodies the confidential technology 
+#  of NewNet. Possession, use, duplication or dissemination of the 
+#  software and media is authorized only pursuant to a valid written license 
+#  from NewNet.
+#
+# ----------------------------------------------------------------------------
+# $Id: init.automate_kernel_patch,v 1.1 2015/08/14 08:54:50 fkok Exp $
+# ----------------------------------------------------------------------------
+
+# chkconfig: 1 98 00
+# description: Automates the installation of kernel pacthes.
+
+### BEGIN INIT INFO
+# Provides: Automate_Kernel_Patch
+# Default-Start: 1
+# Default-Stop: 
+# Short-Description: Automates the installation of kernel pacthes.
+### END INIT INFO
+
+if [ -f /lib/lsb/init-functions ]
+then
+  . /lib/lsb/init-functions
+fi
+
+state="$1"
+
+#
+# Do not give any output the called automate tool will if needed.
+# Do not scare of the operator with message which could be misunderstood
+# The tool will also validate for run level 1 and see if anything is needed.
+#
+case "$state" in
+    'start')    /usr/local/bin/automate --console --kernel; ;;
+esac
+exit 0

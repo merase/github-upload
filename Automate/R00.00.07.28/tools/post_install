@@ -1,0 +1,95 @@
+#!/bin/sh
+# ----------------------------------------------------------------------------
+#
+#  (c) Copyright 2017-2017 NewNet                 
+# 
+#  This software is proprietary to and embodies the confidential technology 
+#  of NewNet. Possession, use, duplication or dissemination of the 
+#  software and media is authorized only pursuant to a valid written license 
+#  from NewNet.
+#
+# ----------------------------------------------------------------------------
+# $Id: post_install,v 1.11 2017/06/30 09:06:49 fkok Exp $
+# ----------------------------------------------------------------------------
+#
+
+# set variables
+if [ -z $INSTDIR ]
+then
+    echo "ERROR: INSTALLDIR not specified!"
+    exit 1;
+fi
+if [ ! -d $INSTDIR ]
+then
+    echo "ERROR: Directory $INSTDIR does not exist!"
+    exit 1;
+fi
+
+INSTALLDIR=$INSTDIR
+OURVARDIR='/var/Automate'
+
+# Make a symobolic link for /var/automate  and /var/log/automate directory
+rm -f   /var/automate
+ln -fs  $OURVARDIR /var/automate
+rm -f   /var/log/automate
+ln -fs  $OURVARDIR/log /var/log/automate
+
+# Make symbolic link for the generic (OS) package
+rm -f   $OURVARDIR/pkg/OS/any                       # This should be fixed to real version in the future
+ln -fs  $INSTALLDIR/pkg/OS $OURVARDIR/pkg/OS/any
+rm -f   $OURVARDIR/pkg/OS/fallback
+ln -fs  $INSTALLDIR/pkg/OS $OURVARDIR/pkg/OS/fallback
+
+# Make symbolic link for all help files, should not be comflicting with Baseine!
+for file in $INSTDIR/hlp/*; do
+    rm -f  $OURVARDIR/hlp/$(basename $file)
+    ln -fs $file $OURVARDIR/hlp/$(basename $file)
+done
+
+# activate the init script
+if [ -r /etc/tekelec.cfg ];  then
+    # TPD
+    echo "TPD was never supported"
+    exit 1
+elif [ -x /usr/lib/lsb/install_initd ]; then
+    # Find our RHEL version
+    maj_ver='6'     # Assume odl if not known
+    if [ -f /etc/redhat-release ] ; then
+        maj_ver="$(cat /etc/redhat-release | sed s/.*release\ // | cut -d'.' -f1)"
+    fi
+    if [ "$maj_ver" -le '6' ]; then # RHEL7 >= does not need initd installs (soem used)
+        # Make linka
+        ln -fs $INSTDIR/var/init.automate              /etc/init.d/zz-Automate
+        ln -fs $INSTDIR/var/init.automate_kernel_patch /etc/init.d/automate_kernel_patch
+
+        # only The zz is added to prevent order porblem with S99TextPass
+        /usr/lib/lsb/install_initd /etc/init.d/zz-Automate
+        /usr/lib/lsb/install_initd /etc/init.d/automate_update
+        /usr/lib/lsb/install_initd /etc/init.d/automate_kernel_patch
+    else
+        # Remove init.d service we don't need otherwise it will auto generate
+        # one. We do need automate_update! See 26164
+        rm -f /etc/init.d/zz-Automate
+        rm -f /etc/init.d/automate_kernel_patch
+        # Could have introduced a preset file (not yet supported by packege.pl)
+        # So this is used approach so far. Keep in mind the kernel_patch
+        # should be reworked see 26054
+        systemctl --quiet enable automate.service
+        systemctl --quiet enable automate_update.service
+    fi
+else
+    # Make linka
+    ln -fs $INSTDIR/var/init.automate              /etc/init.d/zz-Automate
+    ln -fs $INSTDIR/var/init.automate_kernel_patch /etc/init.d/automate_kernel_patch
+
+    # Solaris, still not supported but this is the idea
+    # The zz is added to prevent order porblem with S99TextPass
+    rm -f  /etc/rc3.d/S99zz-Automate
+    ln -fs /etc/init.d/zz-Automate  /etc/rc3.d/S99zz-Automate
+    rm -f  /etc/rc1.d/S99automate_kernel_patch
+    ln -fs /etc/init.d/automate_kernel_patch  /etc/rc1.d/S98automate_kernel_patch
+    rm -f  /etc/rc3.d/S98automate_update
+    ln -fs /etc/init.d/automate_update  /etc/rc3.d/S98automate_update
+
+    echo "Solaris is not supported, nor tested! So use for test purpose only."
+fi

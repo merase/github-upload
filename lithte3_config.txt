@@ -1,0 +1,138 @@
+<!--
+    Sample for a host-specific configuration file for the TextPass AMS
+    (c) Copyright 2003-2013 NewNet
+
+    $Id: hostname_config.txt_template_ams,v 1.23 2013/08/14 05:43:40 vjinda10 Exp $
+-->
+
+<tpconfig
+    virtualpointcode="5350"
+    pointcode="5354"
+    gtaddressinfo="313130009704"
+    ipaddress="10.183.141.215"
+    runtextamsprocess="true"
+    runqclidprocess="true"
+
+    processpriority="critical"
+    amsdbdatabasedirectorymaster="/dbamsstore/master"
+    amsdbtransactiondirectorymaster="/dbamslog/master"
+    amsdbdatabasedirectoryreplica="/dbamsstore/replica"
+    amsdbtransactiondirectoryreplica="/dbamslog/replica"
+    
+    requiress7connectivity="false"
+
+    runtextfafprocess="true"
+
+    runtexthubprocess="true"
+    hubipaddressowninternal="10.183.141.215"
+
+    runtextiiwprocess="true"
+
+    iiwrouterdistributionmode="global"
+    iiwmaxforwardresponsetime="60"
+    iiwmtimsmaxresponsetime="60"
+    iiwmtimstransport="udp"
+    iiwhostnameownexternal="localhost"
+    iiwhssquerytype="normal"
+    iiwhssunavailablethreshold="10"
+
+    iiwdiamquerytimeout="30"
+    iiwdiamdwrperiod="100"
+    iiwdiamreconnectperiod="100"
+    iiwdiamstopafterdc="false"
+    iiwdiammaxpendingdwrs="100"
+    iiwdiamoriginhost="10.183.141.215"
+    iiwdiamproxyablerequests="false"
+    iiwdefaultlistenerindex="1"
+
+    runtextpbcprocess="true"
+    runtextpassprocess="true"
+    runtpfclientprocess="true"
+    useapplicationccdrgroupid="false"
+
+>
+
+
+    <fxferfile
+       localpath="/usr/TextPass/etc/common_config.txt"
+       serverpath="/usr/TextPass/etc/common_config.txt"
+       validate="/usr/TextPass/bin/tp_config --validatecommonconfig SERVERFILE"
+    />
+    <fxferfile
+        localpath="/usr/TextPass/etc/MGRdata.xml.gz"
+        serverpath="/usr/TextPass/etc/MGRdata.xml.10.183.141.215.gz"
+    />
+
+    <trapreceiver ipaddress="127.0.0.1" udpport="11173"/>
+
+    <siplistener name="SIP-UDP"
+        protocol="udp" port="5060" maxsessions="50" maxresponsetime="60"
+    />
+    <siplistener name="msggw"
+        protocol="tcp" port="5060" adminstate="active"
+        maxsessions="50" maxresponsetime="60"
+    />
+
+    <sipheader header="acceptContact" value="*;+g.3gpp.smsip;require;explicit"/> 
+
+<!--
+    Template for the host-specific configuration file for the TextPass Router
+    (c) Copyright 2007-2017 NewNet
+
+    $Id: hostname_config.txt_template_rtr,v 1.11 2017/08/17 13:57:45 dtolani Exp $
+-->
+    <!--
+        SIGTRAN configuration, M3UA ASP role.
+        Use multiple IP addresses for SCTP multi-homing
+    -->
+
+    <m3ualocaladdress spec="10.183.141.215"/>
+    <m3ualocaladdress spec="127.0.0.1"/>
+
+    <!--
+        If the SS.7 related connectivity configuration is symmetric,
+        it is recommended to place it into the common_config.txt,
+        in order to avoid having to keep the configuration in sync
+        between a potentially large number of nodes.
+
+        The RTR can run without SS.7 connectivity (e.g. as part of a
+        pure application gateway. In that case, no SS.7 related
+        configuration is necessary.
+
+        If SS.7 connectivity is achieved using SIGTRAN (M3UA), the RTR
+        plays the role of an ASP, and the configuration defines peer
+        SGP nodes and the RTR's connectivity to them as follows:
+    -->
+
+    <m3uasgp name="SGP-1"
+        sctplocalport="2905"
+        sctpremoteport="2906"
+        useforvirtualpointcode="true"
+      >
+        <!-- Use multiple IP addresses for SCTP multi-homing -->
+        <remoteaddress spec="10.183.141.215"/>
+        <remoteaddress spec="127.0.0.1"/>
+    </m3uasgp>
+    <m3uasgp name="SGP-2"
+        sctplocalport="2907"
+        sctpremoteport="2907"
+      >
+        <remoteaddress spec="10.183.141.215"/>
+        <remoteaddress spec="127.0.0.1"/>
+    </m3uasgp>
+
+    <!-- an STP, reachable through both SGPs is declared as follows: -->
+    <destination name="STP_TEST_NODE_1" type="stp" pointcode="2100">
+        <route m3uasgp="SGP-1"/>
+    </destination>
+
+    <!-- and an SMSC, reachable only through SGP-1 like this: -->
+
+    <!--
+        SCCP-layer routing decisions are controlled by global title
+        translation (GTT) rules. They adhere to the following pattern:
+    -->
+
+    <!-- to route on PC/SSN to a previously declared MSC, do: -->
+
+</tpconfig>

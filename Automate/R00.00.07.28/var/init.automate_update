@@ -1,0 +1,75 @@
+#!/bin/sh
+#
+# ----------------------------------------------------------------------------
+#
+#  (c) Copyright 2001-2011 NewNet
+# 
+#  This software is proprietary to and embodies the confidential technology 
+#  of NewNet. Possession, use, duplication or dissemination of the 
+#  software and media is authorized only pursuant to a valid written license 
+#  from NewNet.
+#
+# ----------------------------------------------------------------------------
+# $Id: init.automate_update,v 1.3 2017/03/13 09:46:15 fkok Exp $
+# ----------------------------------------------------------------------------
+
+# chkconfig: 345 98 00
+# description: Updates of the automation tool if any.
+
+### BEGIN INIT INFO
+# Provides: Automate_Update
+# Default-Start: 3 4 5
+# Default-Stop: 
+# Short-Description: Updates of the automation tool if any.
+### END INIT INFO
+
+if [ -f /lib/lsb/init-functions ]
+then
+  . /lib/lsb/init-functions
+fi
+
+state="$1"
+
+case "$state" in
+'start')
+        info="Checking for Automate Updates: "
+        echo -n "$info"
+        # Do not echo anything unless updates are found. This tool uses the
+        # installed automate framework to collect any updates.
+        # The tool will make sure that only newer versions are collected.
+        udir='/usr/tmp/automate_updates'
+        /usr/local/bin/automate --collect_updates_in="$udir"
+        if [ $? == 0 -a -d "$udir" ]; then    # update are found if directory exist
+            echo "[ Found updates, installing ... ]";
+            updated=0
+            for f in $(ls $udir); do
+                # Currently only RPM's are handled.
+                if [ "${f##*.}" == 'rpm' ]; then
+                    echo "$f"
+                    pkg=$(echo -n "$f" | cut -d '-' -f1)
+                    if [ "$pkg" == '' ]; then
+                        echo "Cannot identify package name, skipping '$f'"
+                    else
+                        # See if actualy installed (safety)
+                        rpm -q --quiet $pkg
+                        if [ $? == 0 ]; then rpm -e --nodeps $pkg; fi
+                        rpm -ivh --nodeps "$udir/$f"
+                        ((updated++))
+                    fi
+                else
+                    echo "Unhandled file: '$udir/$f'"
+                fi
+            done
+            echo "${info}[ $updated updated ]"
+        else
+            echo "[ none needed ]"
+        fi
+        ;;
+'stop') :       # Silently accept.
+        ;;
+*)
+        echo "Usage: $0 { start | stop }"
+        exit 1
+        ;;
+esac
+exit 0

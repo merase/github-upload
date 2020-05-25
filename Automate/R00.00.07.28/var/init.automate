@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# ----------------------------------------------------------------------------
+#
+#  (c) Copyright 2001-2011 NewNet
+# 
+#  This software is proprietary to and embodies the confidential technology 
+#  of NewNet. Possession, use, duplication or dissemination of the 
+#  software and media is authorized only pursuant to a valid written license 
+#  from NewNet.
+#
+# ----------------------------------------------------------------------------
+# $Id: init.automate,v 1.5 2015/08/21 13:58:41 fkok Exp $
+# ----------------------------------------------------------------------------
+
+# chkconfig: 345 99 00
+# description: Start the automation tool.
+
+### BEGIN INIT INFO
+# Provides: zz-Automate
+# Default-Start: 3 4 5
+# Default-Stop: 
+# Short-Description: Start the automation tool.
+### END INIT INFO
+
+if [ -f /lib/lsb/init-functions ]
+then
+  . /lib/lsb/init-functions
+fi
+
+state="$1"
+
+info="Automate tool: "
+case "$state" in
+'start')
+        echo -n "${info}";
+        /usr/local/bin/automate --console
+        ret=$?
+        if [ $ret == 0 ]; then
+            echo "${info}[ ok ]"
+        elif [ $ret == 63 ]; then
+            echo "[ not needed ]"
+        else
+            echo "${info}[ failed ]"
+        fi
+        ;;
+'stop')
+        echo -n "${info}[ stopping ]";
+        /usr/local/bin/automate --terminate
+        if [ $? == 0 ]; then
+            echo "${info}[ ok ]"
+        else
+            echo "${info}[ failed ]"
+        fi
+        ;;
+*)
+        echo "Usage: $0 { start | stop }"
+        exit 1
+        ;;
+esac
+exit 0

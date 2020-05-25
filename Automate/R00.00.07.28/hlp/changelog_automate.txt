@@ -1,0 +1,355 @@
+# Change Log of Automate Framework
+All notable changes of the Automate-Framework will be documented in this file.
+This is basically a list of the fixed bug. Whenever possible a small hint is
+given.
+
+The info is not complete it only start from a certain point.
+
+Dates written in YYYY-MM-DD
+Type of changes: Added/Changed/Deprecated/Removed/Fixed/Security
+
+## R00.00.07.20 [2018-09-26]
+### Fixed
+- Bug 26939 - Automate can not install licenses on VMware systems
+- Bug 28062 - [Automate] : Systemd service files have unneeded permissions
+- Bug 28152 - Add USB Installation files to Automate tar.
+
+## R00.00.07.19 [2018-09-05]
+### Fixed
+- Bug 28083 - Automate getting fail to configure repositories in 17.0
+- Bug 28088 - Automate shows wrong screen output while UPG 16.8 to 17.0
+- General   - Small fixed in install_automate tool (warning about dirs with space).
+
+## R00.00.07.18 [2018-08-30]
+### Fixed
+- Bug 28040 - Automate getting fail to retrieve  SW-ISO in 17.0
+- General   - Small change in EMG template settings.
+
+## R00.00.07.17 [2018-08-02]
+### Changed
+- Bug 27707 - Automate Tool : Restrict the yum repositories to OS and SW.
+### Fixed
+- Bug 27698 - Automate getting fail to  recover MySQL-Server in 15.7 to 16.9 upgrade
+- Bug 27712 - [Routine task] Automate tool update (17.0)
+- Bug 27813 - Add USB Installation files to Automate tar.
+- General   - Removed harmless warning
+  * /var/Automate/pkg/OS/fallback/steps/collect_Rollback-Info.2.Linux.-RH7_0.sh:
+  * line 12: syntax error near unexpected token `fi'
+
+## R00.00.07.16 [2018-06-08]
+### Added
+- Bug 27631 - Automate getting fail in step check_Disks OS in upgrade from 15.7 to 16.8 (GEN10)
+### Fixed
+- Bug 27619 - Immediate Filter on closed Log Record Files (Automate)
+
+## R00.00.07.15 [2018-05-08]
+### Added
+- Bug 26944 - automate seems unable to skip sub-step if it is the first
+sub-step
+### Changed
+- Bug 27100 - Gen10: Automate update as per latest procedure to install REHL
+7.4 EFI OS using USB
+
+## R00.00.07.14 [2018-03-05]
+### Fixed
+- Bug 27094 - [16.7][LGP Perf.]: LGP crashed due to full MySQL tmp dir, advised to change in automate
+- Bug 26939 - Automate can not install licenses on VMware systems
+- Bug 27138 - Gen10: Automate fail to install 2nd instance at step 32 in TE
+### Added
+- Bug 27165 - Gen10: /usr/Textpass/.ssh/known_hosts file permission update in automate step 46
+- Bug 27222 - RHEL subscription manager re-enabled on upgrade : Remove the cron entry after upgrade.
+
+## R00.00.07.13 [2018-01-26]
+### Fixed
+- Bug 27029 - KVM-Automation- Configuring Partitions failed on all the nodes
+- Bug 27042 - KVM-Automation getting fail while configure NTP
+### Added
+- Bug 27039 - Gen10: Automate fails at step14-1 for RAID configuration
+- Bug 27040 - Gen10: Automate detects /dev/sde in Gen10 machine and fails at step 14-1
+
+## R00.00.07.12 [2018-01-22]
+### Fixed
+- Bug 26896 - bug26020 - KVM-Automation- Configuring Partitions failed on all the nodes
+- Bug 26958 - KVM-Automation getting fail while configure NTP OS
+- Bug 26959 - RHEL7 productization (USB kickstart file - Automate)
+- Bug 26960 - Automate Fails to configure EC-Applications RTR
+
+## R00.00.07.11 [2017-12-15]
+### Fixed
+- Bug 26934 - enable compression of coredump files (Automate)
+  * A problem was found in freshly adding the kernel pattern, not in updating.
+
+## R00.00.07.10 [2017-12-14]
+### Added
+- Bug 26934 - enable compression of coredump files (Automate)
+
+## R00.00.07.09 [2017-12-14]
+### Fixed
+- Bug 26936 - Automate keep on  executing  same step 20 (Reboot)on All Nodes OAM,LE and TE
+
+## R00.00.07.08 [2017-12-13]
+### Changed
+- Bug 26839 - UM : Backup Section Update for 16.0 to 16.4 Upgrade Path(Automate tool)
+- Bug 26840 - UM : Yum update procedure for 16.0 to 16.4 OS and NMM  Upgrade(Automate tool)
+### Fixed
+- Bug 26897 - bug26020 - KVM-Automation- getting error while configuring the NTP Server
+- Bug 26902 - bug26020 - KVM-Automation- getting template error on LE node while configuring mysql.
+
+## R00.00.07.07 [2017-11-22]
+### Fixed
+- Bug 26578 - Automate : service file for textpass use obsolete /etc/sysconfig/clock
+- Bug 26586 - RHEL7 : Remove /etc/modprobe.d/bonding.conf (Loading bonding explicitly not required)
+- Bug 26815 - The helper function of Automate to explicitly print out installation steps on upgraded servers troughs error
+
+## R00.00.07.06 [2017-10-12]
+### Fixed
+- Bug 26654 - yum update breaks snmp softlink at /usr/local/share/snmp/mibs and throws mib errors on tp_status (Automate/Baseline)
+
+## R00.00.07.05 [2017-10-06]
+### Fixed
+- Bug 26585 - Automate fails to mount old disk, while command says correctly mounted
+
+## R00.00.07.04 [2017-09-13]
+### Added
+- Bug 26529 - Automate: support RHEL6.x To RHEL7.3-NMM16.0 upgrade as OS-hop (like 5.x to 6.x)
+### Fixed
+- Bug 25237 - Baseline package misses MySQL /MySQL cluster updates
+- Bug 26031 - On systems with more than 16 cores PBC automation gives an error in step 36
+- Bug 26477 - aut_gen_upgrade_data script fails if user aut_admin has expired password
+- Bug 26491 - Linux executable do not dump core (Automate)
+- Bug 26501 - After installing Oracle 12 client can no longer read license and processes will not start
+- Bug 26513 - routine task: Automate tool update (16.4)
+- Bug 26554 - Automate: Compatibility issue with older baselines.
+
+## R00.00.07.03 [2017-08-18]
+### Fixed
+- Bug 26439 - Two small issues on install via automate
+### Changed
+- Bug 26455 - RHEL 7: Automate need update as per changes in MOP for hostname update
+
+## R00.00.07.02 [2017-07-13]
+### Changed
+- Bug 26179 - RHEL7: Automate has to be updated to adopt STV version change
+- Bug 26202 - RHEL7: Statistics are not updating in MGRGUI and stv_poll_collector log has multiple errors
+- Bug 26239 - RHEL7: A file /etc/sysconfig/clock to set the timezone for systemd scripts to be created.
+- Bug 26249 - Automate: hostname setting should be improved for RHEL7
+
+## R00.00.07.01 [2017-06-30]
+Please verify status Fixed/Changed/Added. Future use bug type.
+### Changed
+- Bug 25959 - /var/lib/mysql/RPM_UPGRADE_MARKER stops mysql install
+- Bug 26076 - automate default for PBC should be ldap
+- Bug 26094 - RHEL7 Automate needs update with change of name from hpssacli to ssacli package.
+- Bug 26163 - support of RHEL7 (Automate) :  added request to remove packages
+- Bug 26164 - support of RHEL7 (Automate) : improve service usage in automate
+### Fixed
+- Bug 26128 - Automate Fails to configure STVPol for STV Poller Node
+- Bug 26129 - In TE Node Automate trying to start MySQL-server and getting Fail.
+- Bug 26144 - Automate fails to configure PBC component in TE Node
+- Bug 26148 - Automate fails with  NCAT Retrieval
+
+## R00.00.07.00 [2017-06-08]
+### Added
+- Bug 24530 - support of RHEL7 (Automate)
+### Fixed
+- Bug 26013 - routine task: Automate tool update (16.0 Baseline)
+
+## R00.00.06.52 [2017-05-23]
+### Fixed
+- Bug 25927 - Automation tool does not restart ECABM and SSI Process.
+### Changed
+- Bug 26011 - Data Customer Template file correction and improvisation
+- Bug 24938 - Add proper dependencies for Automate Packages
+
+## R00.00.06.51 [2017-03-21]
+### Fixed
+- Bug 25765 - BG25306_tomcat not started during OAM upgrade
+- Bug 25785 - BG25306_Tool is not starting the tp_mgrd process post upgrade
+
+## R00.00.06.50 [2017-03-13]
+### Fixed
+- Bug 25744 - BG25306_RHEL OS upgrade failed
+
+## R00.00.06.49 [2017-03-08]
+### Added
+- Bug 25571 - Enhance Automate tool to support New TextPassMySQL Cluster names for SE installation and upgrade
+  * Required for Baseline NMM15.7.0.2
+  * NMM 15.7.0-157.1.0 is marked as invalid and will be rejected
+- Bug Bug 25729 - BG25306_OAM upgrade failed due to Mysql Cluster Package name mismatched
+  * Marked as duplicate of 25571
+  
+## R00.00.06.48 [2017-02-22]
+### Added
+- Bug 25584 - Prepare main code changes for disabled functionality for Framework Support of (Master)SPF/Cluster upgrade in a big bang scenario.
+  * Only preparing, upgrade will be blocked. Dependent problem are not checked yet if solved.
+
+## R00.00.06.47 [2017-02-21]
+### Added
+- Bug 25578 - Introduce simple changelog for Automate and Baseline (ML)
+  * Use automate --changelog=automate
+- Bug 25234 - Automate support for multi-instance installation
+  * Use [node#instance] to configure the component on this instance.
+    instance = [0-9] when 0 means main textpass instance
+- Bug 25282 - enhance the Automate to provide easy understood logging output for debugging
+  * Use automate --doc for more information
+- Bug 25422 - Add helper script to provide easier understood logging output for debugging
+  * Use aut_log_help --help to get more information on possibilities.
+### Changed
+- Bug 25145 - Provide and test process for patching Linux Dirty Cow vulnerability
+  * Basically changes kernel install into kernel upgrade
+### Fixed
+- Bug 25029 - Automate not able to install unlimited duration commercial licenses
+- Bug 25236 - Automation tool does not recognize licenses with hostid starting with 0
+- Bug 24393 - Unable to upgrade from R11.4 to R14.8 on DL360p Gen8 with SMBIOS 2.8
+ 
+## R00.00.06.46 [2017-01-20]
+### Added
+- Bug 24833 - Allow automate to skip substeps
+  * Use automate --skip_sub
+- Bug 24865 - Automate: Implicitly collect logs after a controlled failure (resolved)
+  * Message with collected logs will be shown, if needed send for further investigation
+### Fixes
+- Bug 24937 - Change in core-util 'cut' behavior causes initialization problems (risk for bash programs)
+- Bug 24917 - BG24078_Tool is not setting "intremap=off" in the grub.conf file while RHEL OS upgrade (resolved)
+- Bug 24870 - Automate can not continue after a reboot with nested steps (resolved)
+
+## R00.00.06.45 [2016-12-19]
+### Fixes
+- Bug 25098 - tp_fclient process is running after reboot 
+
+## R00.00.06.44 [2016-12-13]
+### Fixes
+- Bug 25085 - support LGR upgrade in 14.9 baseline
+
+## R00.00.06.43 [2016-12-09]
+### Fixes
+- Bug 25146 - BG24930_mysql data directory backup should be optional
+
+## R00.00.06.42 [2016-12-03]
+### Fixes
+- Bug 25054 - BG24930_Automation tool doesnt create the soft link for timezone configuration
+
+## R00.00.06.41 [2016-12-02]
+### Fixes
+- Bug 25094 - tp_fclient process is running after reboot (15.6)
+- Bug 25098 - tp_fclient process is running after reboot (15.4)
+
+## R00.00.06.40 [2016-11-30]
+### Fixes
+- Bug 25054 - BG24930_Automation tool doesnt create the soft link for timezone configuration
+
+## R00.00.06.39 [2016-11-29]
+### Fixes
+- Bug 25051 : The EC-ABM nor SSI were stopped/started during the automate process. This has been resolved.
+
+## R00.00.06.38 [2016-11-25]
+### Fixes
+- Bug 25047 - STV functionality unavailable during upgrade
+
+## R00.00.06.37 [2016-09-01]
+### Fixes
+- Bug 24599 - Section 4.3 of RHEL upgrade manual NMM_Upgrade_Procedure_9.4_10.x_11.x_12.x_14.x_15.0_15.4_RHEL needs to be automated
+
+## R00.00.06.36 [2016-08-25]
+### Fixes
+- Bug 24479 - Issue with automate upgrade and hpacucli 
+
+## R00.00.06.35 [2016-08-10]
+### Fixes
+- Bug 24488 - Some system packages are missing while upgrading the system from 14.0 to 15.4
+- Bug 23899 - Automation tool is not configuring EC-ABM properly
+
+## R00.00.06.34 [2016-08-08]
+### Fixes
+- Bug 23629 - RHEL Installation Manual Update: Time Zone Configuration
+- Bug 24215 - Automation Tool is not configuring Keep Alive Timer on OAM
+
+## R00.00.06.33 [2016-06-22]
+### Fixes
+- Bug 24217 - Tool is configuring the wrong RAID configuration on OAM node
+
+## R00.00.06.32 [2016-06-22]
+### Fixes
+- Bug 24213 - Changing the name of sample customer file from “Data-Custommer.cfg_template” to “Data-Customer.cfg_template”
+
+## R00.00.06.31 [2016-06-06]
+### Fixes
+- Bug 24092 - Increased capacity for AMS - LNXCFG Changes 
+
+## R00.00.06.30 [2016-06-01]
+### Fixes
+- Bug 23909 - PBC issues reflected in /var/log/messages when installed using Automation Tool 
+- Bug 23901 - Issues while configuring EMG through automation tool
+- Bug 24055 - Warnings are coming while tool is configuring common devices
+- Bug 24058 - Configure LGR step is failing
+- Bug 24039 - USB Installation: install_automate command is giving errors
+
+## R00.00.06.29 [2016-05-25]
+### Fixes
+- Bug 24003 - Log message is telling the wrong disk to be removed, while mirror breaking
+
+## R00.00.06.28 [2016-05-23]
+### Fixes
+- Bug 23556 - Using AUTOMATE R00.00.06.14-1.x86_64 for fresh R14.8 install several issues
+- Bug 23886 - Tools Fail while installing licenses
+- Bug 23887 - Automation Tool is giving error while configuring devices on GUI 
+- Bug 23909 - PBC issues reflected in /var/log/messages when installed using Automation Tool
+
+## R00.00.06.27 [2016-05-10]
+### Fixes
+- Bug 23729 - Automation tool is throwing unexpected warning messages for raid configuration
+
+## R00.00.06.26 [2016-05-09]
+### Fixes
+- Bug 23978 - Automation tool is not upgrading the packages on OAM node
+
+## R00.00.06.25 [2016-05-03]
+### Fixes
+- Bug 23588 - BG23293 : automate tool should have option as "NO DB" while asking for PBC DB details
+
+## R00.00.06.24 [2016-05-02]
+### Fixes
+- Bug 23872 - support tomcat tar file needs to be removed from 14.9 baseline 
+
+## R00.00.06.23 [2016-04-27]
+### Fixes
+- Bug 23729 - Automation tool is throwing unexpected warning messages for raid configuration
+- Bug 23695 - Updating the RHEL Automate Tool for Remote Mirror Break
+- Bug 23829 - Tool is not able to upgrade RHEL OS while upgrading from 11.0
+
+## R00.00.06.22 [2016-12-12]
+### Fixes
+- Bug 23492 - Textpass tool should install the correct config file( /etc/init.d/textpass_snmpd) 
+
+## R00.00.06.21 [2016-04-11]
+### Fixes
+- Bug  23747 - Rollback failed when upgrade is done using Automation tool
+
+## R00.00.06.20 [2016-04-11]
+### Fixes
+- Bug  23747 - Rollback failed when upgrade is done using Automation tool
+
+## R00.00.06.19 [2016-03-18]
+### Fixes
+- Bug 23695 - Updating the RHEL Automate Tool for Remote Mirror Break
+- Bug 23698 - Unexpected warning messages throwing by automation tool 
+
+## R00.00.06.18 [2016-03-14]
+### Fixes
+- Bug 23624 - Automate Tool Fails When Tomcat (for LGR) is Installed
+
+## R00.00.06.17 [2016-02-26]
+### Fixes
+- Bug 23414 - BG22414: USC2 Character Conversion [Automation tool] 
+- Bug 23591 - BG23293: OAM Upgrade failed via Automate tool
+
+## R00.00.06.16 [2016-02-17]
+### Fixes
+- Bug 23356 - Rollback failed when upgrade is done using Automation tool if "/backup" directory does not exist.
+
+## R00.00.06.15 [2016-02-10]
+### Fixes
+- Bug 23494 - changes are required in distrib/Package.pl to compile Automate and Automate_Baseline packages
+- Bug 23414 - BG22414: USC2 Character Conversion [Automation tool]
+
+## Older not auto collected, could be manually added.
